@@ -1,4 +1,5 @@
 # .svsのファイルから組織領域部分の座標を.csvファイルに書き出す
+# すでにあるファイルも上書き処理をして時間を食うので要修正
 import os
 import csv
 from PIL import Image, ImageStat
