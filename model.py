@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torchvision.models as models
-from Adaptive_Grad_Reverse_Layer import AdaptiveGradReverse
+
 
 
 class feature_extractor(nn.Module):
@@ -10,6 +10,7 @@ class feature_extractor(nn.Module):
         super(feature_extractor, self).__init__()
         vgg16 = models.vgg16(pretrained=True)
         self.feature_ex = nn.Sequential(*list(vgg16.children())[:-1])
+    
     def forward(self, input):
         x = input.squeeze(0)
         feature = self.feature_ex(x)
@@ -37,6 +38,7 @@ class class_predictor(nn.Module):
         self.classifier = nn.Sequential(
             nn.Linear(512, 3),
         )
+
     def forward(self, input):
         x = input.squeeze(0)
         H = self.feature_extractor_2(x)
@@ -61,7 +63,7 @@ class MIL(nn.Module):
         # 特徴抽出
         features = self.feature_extractor(x)
         # class分類
-        class_prob, class_hat, A = self.class_predictor(features, mode)
+        class_prob, class_hat, A = self.class_predictor(features)
         # 訓練時(mode='train')DANN適用
         return class_prob, class_hat, A
 

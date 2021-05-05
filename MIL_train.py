@@ -5,6 +5,7 @@ from torch import nn, optim
 import torch.nn.functional as F
 import numpy as np
 import csv
+import random
 import os
 import dataloader_svs
 import torch.distributed as dist
@@ -12,13 +13,15 @@ import torch.multiprocessing as mp
 from torch.nn.parallel import DistributedDataParallel as DDP
 import time
 import sys
+from tqdm import tqdm
 
 def setup(rank, world_size):
     os.environ['MASTER_ADDR'] = 'localhost'
     os.environ['MASTER_PORT'] = '12355' #適当な数字で設定すればいいらしいがよくわかっていない
 
     # initialize the process group
-    dist.init_process_group("nccl", rank=rank, world_size=world_size)
+    # winではncclは使えないので、gloo
+    dist.init_process_group("gloo", rank=rank, world_size=world_size)
 
 #正誤確認関数(正解:ans=1, 不正解:ans=0)
 def eval_ans(y_hat, label):
@@ -33,26 +36,30 @@ def makedir(path):
     if not os.path.isdir(path):
         os.makedirs(path)
 
-import random
-import utils
+
 def train(model, rank, loss_fn, optimizer, train_loader):
     model.train() #訓練モードに変更
     train_class_loss = 0.0
     correct_num = 0
-    for (input_tensor, slideID, class_label) in train_loader:
-        # MILとバッチ学習のギャップを吸収
-        input_tensor = input_tensor.to(rank, non_blocking=True)
-        class_label = class_label.to(rank, non_blocking=True)
-        for bag_num in range(input_tensor.shape[0]):
-            optimizer.zero_grad() #勾配初期化
-            class_prob, class_hat, A = model(input_tensor[bag_num])
-            # 各loss計算
-            class_loss = loss_fn(class_prob, class_label[bag_num])
-            train_class_loss += class_loss.item()
 
-            class_loss.backward() #逆伝播
-            optimizer.step() #パラメータ更新
-            correct_num += eval_ans(class_hat, class_label[bag_num])
+    bar = tqdm(total = len(train_loader))
+    for (input_tensor, slideID, class_label) in train_loader:
+        bar.update(1)
+
+        # MILとバッチ学習のギャップを吸収
+        input_tensor = input_tensor.to(rank, non_blocking=True).squeeze(0)
+        class_label = class_label.to(rank, non_blocking=True).squeeze(0)
+        
+        optimizer.zero_grad() #勾配初期化
+        class_prob, class_hat, A = model(input_tensor)
+        
+        # 各loss計算
+        class_loss = loss_fn(class_prob, class_label)
+        train_class_loss += class_loss.item()
+
+        class_loss.backward() #逆伝播
+        optimizer.step() #パラメータ更新
+        correct_num += eval_ans(class_hat, class_label)
 
     return train_class_loss, correct_num
 
@@ -85,34 +92,47 @@ def train_model(rank, world_size, train_slide, valid_slide):
     if rank == 0:
         print('train:'+train_slide)
         print('valid:'+valid_slide)
-    #train_slide = '123'
-    #valid_slide = '4'
-    #test_slide = '5'
+    
     mag = '40x' # ('5x' or '10x' or '20x')
     EPOCHS = 10
+    
     #device = 'cuda'
+    
     ################################################################
-    # 訓練用と検証用に症例を分割
-    import dataset_kurume as ds
-    train_DLBCL, train_FL, train_RL, valid_DLBCL, valid_FL, valid_RL = ds.slide_split(train_slide, valid_slide)
-    train_domain = train_DLBCL + train_FL + train_RL
-    valid_domain = valid_DLBCL + valid_FL + valid_RL
-    # 訓練slideにクラスラベル(DLBCL:1, nonDLBCL:0)とドメインラベル付与
-    train_dataset = []
-    for slideID in train_DLBCL:
-        train_dataset.append([slideID, 0])
-    for slideID in train_FL:
-        train_dataset.append([slideID, 1])
-    for slideID in train_RL:
-        train_dataset.append([slideID, 2])
+    
+    # # 訓練用と検証用に症例を分割
+    # import dataset_kurume as ds
+    # train_DLBCL, train_FL, train_RL, valid_DLBCL, valid_FL, valid_RL = ds.slide_split(train_slide, valid_slide)
+    # train_domain = train_DLBCL + train_FL + train_RL
+    # valid_domain = valid_DLBCL + valid_FL + valid_RL
+    # #slideIDにクラスラベルを付与
+    # train_dataset = []
+    # for slideID in train_DLBCL:
+    #     train_dataset.append([slideID, 0])
+    # for slideID in train_FL:
+    #     train_dataset.append([slideID, 1])
+    # for slideID in train_RL:
+    #     train_dataset.append([slideID, 2])
 
-    valid_dataset = []
-    for slideID in valid_DLBCL:
-        valid_dataset.append([slideID, 0])
-    for slideID in valid_FL:
-        valid_dataset.append([slideID, 1])
-    for slideID in valid_RL:
-        valid_dataset.append([slideID, 2])
+    # valid_dataset = []
+    # for slideID in valid_DLBCL:
+    #     valid_dataset.append([slideID, 0])
+    # for slideID in valid_FL:
+    #     valid_dataset.append([slideID, 1])
+    # for slideID in valid_RL:
+    #     valid_dataset.append([slideID, 2])
+
+    train_dataset = [
+        ['180005', 0],
+        ['180010', 1],
+        ['180637', 2]
+    ]
+
+    valid_dataset = [
+        ['180005', 0],
+        ['180010', 1],
+        ['180637', 2]
+    ]
 
     makedir('train_log')
     log = f'train_log/log_{mag}_train-{train_slide}.csv'
@@ -135,6 +155,8 @@ def train_model(rank, world_size, train_slide, valid_slide):
     # MIL構築
     model = MIL(feature_extractor, class_predictor)
     model = model.to(rank)
+
+    #MultiGPUに対応する処理
     process_group = torch.distributed.new_group([i for i in range(world_size)])
     #modelのBatchNormをSyncBatchNormに変更してくれる
     model = nn.SyncBatchNorm.convert_sync_batchnorm(model, process_group)
@@ -143,10 +165,9 @@ def train_model(rank, world_size, train_slide, valid_slide):
 
     # クロスエントロピー損失関数使用
     loss_fn = nn.CrossEntropyLoss()
-    # SGDmomentum法使用
-    #optimizer = optim.SGD(ddp_model.parameters(), lr=0.001, momentum=0.9, weight_decay=0.0001)
     lr = 0.001
-    # 前処理
+    
+     # 前処理
     transform = torchvision.transforms.Compose([
         torchvision.transforms.Resize((224, 224)),
         torchvision.transforms.ToTensor()
@@ -168,6 +189,7 @@ def train_model(rank, world_size, train_slide, valid_slide):
             bag_num=50,
             bag_size=100
         )
+
         #Datasetをmulti GPU対応させる
         #下のDataLoaderでbatch_sizeで設定したbatch_sizeで各GPUに分配
         train_sampler = torch.utils.data.distributed.DistributedSampler(data_train, rank=rank)
@@ -185,6 +207,7 @@ def train_model(rank, world_size, train_slide, valid_slide):
         if epoch > 1 and epoch % 5 == 0:
             lr = lr * 0.1 #学習率調整
         optimizer = optim.SGD(ddp_model.parameters(), lr=lr, momentum=0.9, weight_decay=0.0001)
+
         class_loss, correct_num = train(ddp_model, rank, loss_fn, optimizer, train_loader)
 
         train_loss += class_loss
@@ -194,7 +217,7 @@ def train_model(rank, world_size, train_slide, valid_slide):
             train=True,
             transform=transform,
             dataset=valid_dataset,
-            mag=mag
+            mag=mag,
             bag_num=50,
             bag_size=100
         )
@@ -230,8 +253,8 @@ def train_model(rank, world_size, train_slide, valid_slide):
         # epochごとにmodelのparams保存
         if rank == 0:
             makedir('model_params')
-            model_params = f'./model_params/{mag}_train-{train_slide}_epoch-{epoch}.pth'
-            torch.save(ddp_model.module.state_dict(), model_params)
+            model_params_dir = f'./model_params/{mag}_train-{train_slide}_epoch-{epoch}.pth'
+            torch.save(ddp_model.module.state_dict(), model_params_dir)
 
 if __name__ == '__main__':
 

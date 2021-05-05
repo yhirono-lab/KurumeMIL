@@ -37,7 +37,6 @@ t_size = 4 #サムネイル中の1パッチのサイズ
 b_size = 224
 
 bar = tqdm(total = len(svs_tn_list))
-import time
 for idx, slideID in enumerate(svs_tn_list):
     bar.set_description(slideID)
     bar.update(1)

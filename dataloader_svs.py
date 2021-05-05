@@ -9,7 +9,7 @@ import numpy as np
 
 import openslide
 
-DATA_PATH = '../Data' # データディレクトリ
+DATA_PATH = './data' # データディレクトリ
 
 class Dataset_svs(torch.utils.data.Dataset):
     def __init__(self, dataset, mag='40x', train = True, transform = None, bag_num=50, bag_size=100):
@@ -26,19 +26,21 @@ class Dataset_svs(torch.utils.data.Dataset):
             label = slide_data[1] # クラスラベル
 
             # 座標ファイル読み込み
-            pos = np.loadtxt(f'{DATA_PATH}/csv/{slideID}.csv', delimiter=',', dtype='int')
+            pos = np.loadtxt(f'{DATA_PATH}/svs_info/{slideID}/{slideID}.csv', delimiter=',', dtype='int')
             if not self.train: # テストのときはシャッフルのシードを固定
-                np.random.seed(seed=int(slideID.replace('ML_','')))
+                np.random.seed(seed=int(slideID))
             np.random.shuffle(pos) #パッチをシャッフル
+            
             #最大でbag_num個のバッグを作成
             if pos.shape[0] > bag_num*bag_size:
-                pos = pos[0:(bag_num*bag_size),:]
+                pos = pos[0:(bag_num*bag_size), :]
             for i in range(pos.shape[0]//bag_size):
                 patches = pos[i*bag_size:(i+1)*bag_size,:].tolist()
                 self.bag_list.append([patches, slideID, label])
 
         if self.train: # trainの場合，バッグをシャッフル
             random.shuffle(self.bag_list)
+
         self.data_num = len(self.bag_list)
 
     def __len__(self):
