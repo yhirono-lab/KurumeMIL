@@ -43,10 +43,9 @@ def train(model, rank, loss_fn, optimizer, train_loader):
     correct_num = 0
 
     bar = tqdm(total = len(train_loader))
-    for (input_tensor, slideID, class_label) in train_loader:
+    for input_tensor, slideID, class_label in train_loader:
         bar.update(1)
 
-        # MILとバッチ学習のギャップを吸収
         input_tensor = input_tensor.to(rank, non_blocking=True).squeeze(0)
         class_label = class_label.to(rank, non_blocking=True).squeeze(0)
         
@@ -191,7 +190,7 @@ def train_model(rank, world_size, train_slide, valid_slide):
         )
 
         #Datasetをmulti GPU対応させる
-        #下のDataLoaderでbatch_sizeで設定したbatch_sizeで各GPUに分配
+        #下のDataLoaderで設定したbatch_sizeで各GPUに分配
         train_sampler = torch.utils.data.distributed.DistributedSampler(data_train, rank=rank)
 
         #pin_memory=Trueの方が早くなるらしいが, pin_memory=Trueにすると劇遅になるケースがあり原因不明
