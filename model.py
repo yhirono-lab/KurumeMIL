@@ -3,8 +3,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torchvision.models as models
 
-
-
 class feature_extractor(nn.Module):
     def __init__(self):
         super(feature_extractor, self).__init__()
@@ -19,7 +17,7 @@ class feature_extractor(nn.Module):
 
 
 class class_predictor(nn.Module):
-    def __init__(self):
+    def __init__(self, label_count):
         super(class_predictor, self).__init__()
         # 次元圧縮
         self.feature_extractor_2 = nn.Sequential(
@@ -36,7 +34,7 @@ class class_predictor(nn.Module):
         )
         # class classifier
         self.classifier = nn.Sequential(
-            nn.Linear(512, 3),
+            nn.Linear(512, label_count),
         )
 
     def forward(self, input):

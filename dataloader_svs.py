@@ -34,6 +34,7 @@ class Dataset_svs(torch.utils.data.Dataset):
             #最大でbag_num個のバッグを作成
             if pos.shape[0] > bag_num*bag_size:
                 pos = pos[0:(bag_num*bag_size), :]
+            
             for i in range(pos.shape[0]//bag_size):
                 patches = pos[i*bag_size:(i+1)*bag_size,:].tolist()
                 self.bag_list.append([patches, slideID, label])

@@ -84,7 +84,7 @@ def valid(model, rank, loss_fn, valid_loader):
 #マルチプロセス (GPU) で実行される関数
 #rank : mp.spawnで呼び出すと勝手に追加される引数で, GPUが割り当てられている
 #world_size : mp.spawnの引数num_gpuに相当
-def train_model(rank, world_size, train_slide, valid_slide):
+def train_model(rank, world_size, train_slide, valid_slide, name_mode, depth, leaf):
     setup(rank, world_size)
 
     ##################実験設定#######################################
@@ -100,41 +100,24 @@ def train_model(rank, world_size, train_slide, valid_slide):
     ################################################################
     
     # # 訓練用と検証用に症例を分割
-    # import dataset_kurume as ds
-    # train_DLBCL, train_FL, train_RL, valid_DLBCL, valid_FL, valid_RL = ds.slide_split(train_slide, valid_slide)
-    # train_domain = train_DLBCL + train_FL + train_RL
-    # valid_domain = valid_DLBCL + valid_FL + valid_RL
-    # #slideIDにクラスラベルを付与
-    # train_dataset = []
-    # for slideID in train_DLBCL:
-    #     train_dataset.append([slideID, 0])
-    # for slideID in train_FL:
-    #     train_dataset.append([slideID, 1])
-    # for slideID in train_RL:
-    #     train_dataset.append([slideID, 2])
+    import dataset_kurume as ds
+    # train_dataset = [
+    #     ['180005', 0],
+    #     ['180010', 1],
+    #     ['180637', 2]
+    # ]
 
-    # valid_dataset = []
-    # for slideID in valid_DLBCL:
-    #     valid_dataset.append([slideID, 0])
-    # for slideID in valid_FL:
-    #     valid_dataset.append([slideID, 1])
-    # for slideID in valid_RL:
-    #     valid_dataset.append([slideID, 2])
-
-    train_dataset = [
-        ['180005', 0],
-        ['180010', 1],
-        ['180637', 2]
-    ]
-
-    valid_dataset = [
-        ['180005', 0],
-        ['180010', 1],
-        ['180637', 2]
-    ]
+    # valid_dataset = [
+    #     ['180005', 0],
+    #     ['180010', 1],
+    #     ['180637', 2]
+    # ]
+    
+    train_dataset, valid_dataset, label_count = ds.load_leaf(train_slide, valid_slide, name_mode, depth, leaf)
+    # print(len(train_dataset))
 
     makedir('train_log')
-    log = f'train_log/log_{mag}_train-{train_slide}.csv'
+    log = f'train_log/log_{mag}_depth-{depth}_leaf-{leaf}_train-{train_slide}.csv'
 
     if rank == 0:
         #ログヘッダー書き込み
@@ -150,8 +133,8 @@ def train_model(rank, world_size, train_slide, valid_slide):
     from model import feature_extractor, class_predictor, MIL
     # 各ブロック宣言
     feature_extractor = feature_extractor()
-    class_predictor = class_predictor()
-    # MIL構築
+    class_predictor = class_predictor(label_count)
+    # model構築
     model = MIL(feature_extractor, class_predictor)
     model = model.to(rank)
 
@@ -263,8 +246,12 @@ if __name__ == '__main__':
     train_slide = args[1]
     valid_slide = args[2]
 
+    name_mode = 'Simple'
+    depth = 1
+    leaf = None
+
     #マルチプロセスで実行するために呼び出す
     #train_model : マルチプロセスで実行する関数
     #args : train_modelの引数
     #nprocs : プロセス (GPU) の数
-    mp.spawn(train_model, args=(num_gpu, train_slide, valid_slide), nprocs=num_gpu, join=True)
+    mp.spawn(train_model, args=(num_gpu, train_slide, valid_slide, name_mode, depth, leaf), nprocs=num_gpu, join=True)
