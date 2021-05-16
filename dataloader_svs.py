@@ -9,7 +9,8 @@ import numpy as np
 
 import openslide
 
-DATA_PATH = './data' # データディレクトリ
+DATA_PATH = '/Dataset/Kurume_Dataset' # データディレクトリ
+SVS_PATH = '/Raw/Kurume_Dataset'
 
 class Dataset_svs(torch.utils.data.Dataset):
     def __init__(self, dataset, mag='40x', train = True, transform = None, bag_num=50, bag_size=100):
@@ -55,9 +56,9 @@ class Dataset_svs(torch.utils.data.Dataset):
         b_size = 224 #パッチ画像サイズ
 
         # 症例IDを含む名前のsvsファイルを取得
-        svs_list = os.listdir(f'{DATA_PATH}/svs')
+        svs_list = os.listdir(f'{SVS_PATH}/svs')
         svs_fn = [s for s in svs_list if self.bag_list[idx][1] in s]
-        svs = openslide.OpenSlide(f'{DATA_PATH}/svs/{svs_fn[0]}')
+        svs = openslide.OpenSlide(f'{SVS_PATH}/svs/{svs_fn[0]}')
 
         # 出力バッグ
         bag = torch.empty(patch_len, 3, 224, 224, dtype=torch.float)

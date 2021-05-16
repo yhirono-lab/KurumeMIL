@@ -8,11 +8,11 @@ def readCSV(filepath, label):
     reader = csv.reader(csv_data)
     file_data = []
     for row in reader:
-        if os.path.exists(f'./data/svs_info/{row[0]}'):
+        if os.path.exists(f'/Dataset/Kurume_Dataset/svs_info/{row[0]}'):
             file_data.append([row[0], label])
         else:
-            print(f'SlideID-{row[0]}は存在しません')
-            exit()
+            # print(f'SlideID-{row[0]}は存在しません')
+            continue
     csv_data.close()
     return file_data
 

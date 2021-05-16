@@ -21,7 +21,7 @@ def setup(rank, world_size):
 
     # initialize the process group
     # winではncclは使えないので、gloo
-    dist.init_process_group("gloo", rank=rank, world_size=world_size)
+    dist.init_process_group("nccl", rank=rank, world_size=world_size)
 
 #正誤確認関数(正解:ans=1, 不正解:ans=0)
 def eval_ans(y_hat, label):
@@ -33,7 +33,7 @@ def eval_ans(y_hat, label):
     return ans
 
 def makedir(path):
-    if not os.path.isdir(path):
+    if not os.path.exists(path):
         os.makedirs(path)
 
 
@@ -80,7 +80,8 @@ def valid(model, rank, loss_fn, valid_loader):
 
     return test_class_loss, correct_num
 
-#if __name__ == "__main__":
+SAVE_PATH = '/Dataset/Kurume_Dataset/yhirono/KurumeMIL'
+
 #マルチプロセス (GPU) で実行される関数
 #rank : mp.spawnで呼び出すと勝手に追加される引数で, GPUが割り当てられている
 #world_size : mp.spawnの引数num_gpuに相当
@@ -93,7 +94,7 @@ def train_model(rank, world_size, train_slide, valid_slide, name_mode, depth, le
         print('valid:'+valid_slide)
     
     mag = '40x' # ('5x' or '10x' or '20x')
-    EPOCHS = 10
+    EPOCHS = 2
     
     #device = 'cuda'
     
@@ -101,23 +102,11 @@ def train_model(rank, world_size, train_slide, valid_slide, name_mode, depth, le
     
     # # 訓練用と検証用に症例を分割
     import dataset_kurume as ds
-    # train_dataset = [
-    #     ['180005', 0],
-    #     ['180010', 1],
-    #     ['180637', 2]
-    # ]
-
-    # valid_dataset = [
-    #     ['180005', 0],
-    #     ['180010', 1],
-    #     ['180637', 2]
-    # ]
-    
     train_dataset, valid_dataset, label_count = ds.load_leaf(train_slide, valid_slide, name_mode, depth, leaf)
-    # print(len(train_dataset))
+    print(len(train_dataset))
 
-    makedir('train_log')
-    log = f'train_log/log_{mag}_depth-{depth}_leaf-{leaf}_train-{train_slide}.csv'
+    makedir(f'{SAVE_PATH}/train_log')
+    log = f'{SAVE_PATH}/train_log/log_{mag}_depth-{depth}_leaf-{leaf}_train-{train_slide}.csv'
 
     if rank == 0:
         #ログヘッダー書き込み
@@ -189,7 +178,6 @@ def train_model(rank, world_size, train_slide, valid_slide, name_mode, depth, le
         if epoch > 1 and epoch % 5 == 0:
             lr = lr * 0.1 #学習率調整
         optimizer = optim.SGD(ddp_model.parameters(), lr=lr, momentum=0.9, weight_decay=0.0001)
-
         class_loss, correct_num = train(ddp_model, rank, loss_fn, optimizer, train_loader)
 
         train_loss += class_loss
@@ -234,13 +222,13 @@ def train_model(rank, world_size, train_slide, valid_slide, name_mode, depth, le
         f.close()
         # epochごとにmodelのparams保存
         if rank == 0:
-            makedir('model_params')
-            model_params_dir = f'./model_params/{mag}_train-{train_slide}_epoch-{epoch}.pth'
+            makedir(f'{SAVE_PATH}/model_params')
+            model_params_dir = f'{SAVE_PATH}/model_params/{mag}_train-{train_slide}_epoch-{epoch}.pth'
             torch.save(ddp_model.module.state_dict(), model_params_dir)
 
 if __name__ == '__main__':
 
-    num_gpu = 1 #GPU数
+    num_gpu = 2 #GPU数
 
     args = sys.argv
     train_slide = args[1]
