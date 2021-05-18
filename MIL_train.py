@@ -80,7 +80,7 @@ def valid(model, rank, loss_fn, valid_loader):
 
     return test_class_loss, correct_num
 
-SAVE_PATH = '/Dataset/Kurume_Dataset/yhirono/KurumeMIL'
+SAVE_PATH = '/Kurume/yhirono/KurumeMIL'
 
 #マルチプロセス (GPU) で実行される関数
 #rank : mp.spawnで呼び出すと勝手に追加される引数で, GPUが割り当てられている
@@ -94,7 +94,7 @@ def train_model(rank, world_size, train_slide, valid_slide, name_mode, depth, le
         print('valid:'+valid_slide)
     
     mag = '40x' # ('5x' or '10x' or '20x')
-    EPOCHS = 2
+    EPOCHS = 20
     
     #device = 'cuda'
     
@@ -146,6 +146,7 @@ def train_model(rank, world_size, train_slide, valid_slide, name_mode, depth, le
 
     # 訓練開始
     for epoch in range(EPOCHS):
+        print(f'epoch:{epoch}')
 
         train_loss = 0.0
         train_acc = 0.0
@@ -222,13 +223,13 @@ def train_model(rank, world_size, train_slide, valid_slide, name_mode, depth, le
         f.close()
         # epochごとにmodelのparams保存
         if rank == 0:
-            makedir(f'{SAVE_PATH}/model_params')
+            makedir(f'{SAVE_PATH}/model_params_depth/{depth}_leaf-{leaf}')
             model_params_dir = f'{SAVE_PATH}/model_params/{mag}_train-{train_slide}_epoch-{epoch}.pth'
             torch.save(ddp_model.module.state_dict(), model_params_dir)
 
 if __name__ == '__main__':
 
-    num_gpu = 2 #GPU数
+    num_gpu = 4 #GPU数
 
     args = sys.argv
     train_slide = args[1]
