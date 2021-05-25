@@ -66,14 +66,17 @@ class Dataset_svs(torch.utils.data.Dataset):
         # 画像読み込み
         for pos in pos_list:
             if self.transform: # どの倍率も中心座標は同じ
-                if self.mag == '40x':
-                    img = svs.read_region((pos[0],pos[1]),0,(b_size,b_size)).convert('RGB')
-                elif self.mag == '20x':
-                    img = svs.read_region((pos[0]-(int(b_size/2)),pos[1]-(int(b_size/2))),0,(b_size*2,b_size*2)).convert('RGB')
-                elif self.mag == '10x':
-                    img = svs.read_region((pos[0]-(int(b_size*3/2)),pos[1]-(int(b_size*3/2))),1,(b_size,b_size)).convert('RGB')
-                elif self.mag == '5x':
-                    img = svs.read_region((pos[0]-(int(b_size*7/2)),pos[1]-(int(b_size*7/2))),1,(b_size*2,b_size*2)).convert('RGB')
+                try:
+                    if self.mag == '40x':
+                        img = svs.read_region((pos[0],pos[1]),0,(b_size,b_size)).convert('RGB')
+                    elif self.mag == '20x':
+                        img = svs.read_region((pos[0]-(int(b_size/2)),pos[1]-(int(b_size/2))),0,(b_size*2,b_size*2)).convert('RGB')
+                    elif self.mag == '10x':
+                        img = svs.read_region((pos[0]-(int(b_size*3/2)),pos[1]-(int(b_size*3/2))),1,(b_size,b_size)).convert('RGB')
+                    elif self.mag == '5x':
+                        img = svs.read_region((pos[0]-(int(b_size*7/2)),pos[1]-(int(b_size*7/2))),1,(b_size*2,b_size*2)).convert('RGB')
+                except:
+                    print(self.bag_list[idx][1], pos[0], pos[1])
                 img = self.transform(img)
                 bag[i] = img
             i += 1

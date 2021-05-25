@@ -6,6 +6,7 @@ from PIL import Image, ImageStat
 import numpy as np
 import cv2
 import openslide
+import sys
 
 from tqdm import tqdm
 
@@ -27,39 +28,41 @@ def saveDic(filepath, dict):
     for key, value in dict.items():
         f.write(f'{key}:{value}\n')
 
-DATA_PATH = '/Raw/Kurume_Dataset' # 画像があるディレクトリへのパス
-SAVE_PATH = '/Dataset/Kurume_Dataset'
-
-txt_data = readCSV(f'{SAVE_PATH}/csv_data/Data_SimpleName.csv')
-svs_tn_list = [t[0] for t in txt_data]
-svs_fn_list = os.listdir(f'{DATA_PATH}/svs')
-
-t_size = 4 #サムネイル中の1パッチのサイズ
-b_size = 224
-
-bar = tqdm(total = len(svs_tn_list))
-for idx, slideID in enumerate(svs_tn_list):
-    bar.set_description(slideID)
-    bar.update(1)
-
+def export_pos(idx, slideID):
     svs_fn = [s for s in svs_fn_list if slideID in s]
     if len(svs_fn) == 0:
-        continue
-    # print(svs_fn)
+        return
+    print(svs_fn[0])
     svs = openslide.OpenSlide(f'{DATA_PATH}/svs/{svs_fn[0]}')
 
     width,height = svs.dimensions
     b_w = width // b_size # x方向のパッチ枚数
     b_h = height // b_size # y方向のパッチ枚数
-    # print(width, height, b_w, b_h)
-
+    print(width, height, b_w, b_h)
     thumb = Image.new('RGB',(b_w * t_size, b_h * t_size))   #標本サムネイル
     thumb_s = Image.new('L',(b_w, b_h)) #彩度分布画像
 
+    h_list = range(b_h)
+
+    # svs.read_region((40000, 73168+224),0,(b_size,b_size)).convert('RGB')
+    count = 0
+    all_count = 0
+    bar2 = tqdm(total = b_h*b_w)
     for h_i in range(b_h):
         for w_i in range(b_w):
+            bar2.update(1)
+            all_count+=1
+
+            try:
+                b_img = svs.read_region((w_i * b_size, h_i * b_size),0,(b_size,b_size)).convert('RGB')
+            except:
+                # print(f'slideID:{slideID} is broken...?')
+                print(slideID, (w_i * b_size, h_i * b_size))
+                # return slideID
+                exit()
+            count += 1
+
             #サムネイル作成
-            b_img = svs.read_region((w_i * b_size, h_i * b_size),0,(b_size,b_size)).convert('RGB')
             r_img = b_img.resize((t_size, t_size), Image.BILINEAR)  #サムネイル用に縮小
             thumb.paste(r_img, (w_i * t_size, h_i * t_size))
 
@@ -84,14 +87,19 @@ for idx, slideID in enumerate(svs_tn_list):
                 thumb_s.putpixel((w_i,h_i),round(statS.mean[0]))
             else:
                 thumb_s.putpixel((w_i,h_i),0)
+    print(count,all_count)
 
-    makedir(f'{SAVE_PATH}/svs_info/{slideID}')
-    thumb.save(f'{SAVE_PATH}/svs_info/{slideID}/{slideID}_thumb.tif')    #標本サムネイル保存
-    thumb_s.save(f'{SAVE_PATH}/svs_info/{slideID}/{slideID}_sat.tif')    #彩度分布画像保存
+    # makedir(f'{SAVE_PATH}/svs_info/{slideID}')
+    # makedir(f'{SAVE_PATH}/thumbnail')
+
+    # thumb.save(f'{SAVE_PATH}/svs_info/{slideID}/{slideID}_thumb.tif')    #標本サムネイル保存
+    # thumb.save(f'{SAVE_PATH}/thumbnail/{slideID}_thumb.tif')    #標本サムネイル保存
+    # thumb_s.save(f'{SAVE_PATH}/svs_info/{slideID}/{slideID}_sat.tif')    #彩度分布画像保存
 
     s_array = np.asarray(thumb_s)   #cv形式に変換
     ret, s_mask = cv2.threshold(s_array, 0, 255, cv2.THRESH_OTSU) #判別分析法で二値化
-    cv2.imwrite(f'{SAVE_PATH}/svs_info/{slideID}/{slideID}_mask.tif', s_mask)
+    # cv2.imwrite(f'{SAVE_PATH}/svs_info/{slideID}/{slideID}_mask.tif', s_mask)
+    # cv2.imwrite(f'{SAVE_PATH}/thumbnail/{slideID}_mask.tif', s_mask)
     #s_mask = Image.fromarray(s_mask)    #PIL形式に変換
 
     num_i = np.count_nonzero(s_mask)
@@ -103,14 +111,59 @@ for idx, slideID in enumerate(svs_tn_list):
                 pos[i][0] = w * b_size
                 pos[i][1] = h * b_size
                 i = i + 1
-    makedir(f'{SAVE_PATH}/svs_info/{slideID}')
-    np.savetxt(f'{SAVE_PATH}/svs_info/{slideID}/{slideID}.csv', pos, delimiter=',', fmt='%d')
+    # makedir(f'{SAVE_PATH}/svs_info/{slideID}')
+    # np.savetxt(f'{SAVE_PATH}/svs_info/{slideID}/{slideID}.csv', pos, delimiter=',', fmt='%d')
 
-    info = {
-        'file name':slideID,
-        'svs size':[width, height],
-        'patch size':[b_size, b_size],
-        'patch count':[b_w, b_h],
-        'sample count':num_i,
-        }
-    saveDic(f'{SAVE_PATH}/svs_info/{slideID}/info.txt', info)
+    # info = {
+    #     'file name':slideID,
+    #     'svs size':[width, height],
+    #     'patch size':[b_size, b_size],
+    #     'patch count':[b_w, b_h],
+    #     'sample count':num_i,
+    #     }
+    # saveDic(f'{SAVE_PATH}/svs_info/{slideID}/info.txt', info)
+
+    return None
+
+
+DATA_PATH = '/Raw/Kurume_Dataset' # 画像があるディレクトリへのパス
+SAVE_PATH = '/Dataset/Kurume_Dataset'
+
+txt_data = readCSV(f'{SAVE_PATH}/csv_data/Data_SimpleName.csv')
+svs_tn_list = [t[0] for t in txt_data]
+svs_fn_list = os.listdir(f'{DATA_PATH}/svs')
+
+t_size = 4 #サムネイル中の1パッチのサイズ
+b_size = 224
+
+if not os.path.exists(f'{SAVE_PATH}/svs_info/error_list.txt'):
+    f = open(f'{SAVE_PATH}/svs_info/error_list.txt', 'w', encoding='UTF-8')
+    f.close()
+
+args = sys.argv
+if len(args) > 1:
+    group = int(args[1])
+    split = len(svs_tn_list)//10
+    if group<9:
+        svs_tn_list = svs_tn_list[group*split : (group+1)*split]
+    if group==9:
+        svs_tn_list = svs_tn_list[group*split : len(svs_tn_list)]
+
+svs_tn_list = ['180246']
+
+if __name__ == '__main__':
+    bar = tqdm(total = len(svs_tn_list))
+    for idx, slideID in enumerate(svs_tn_list):
+        bar.set_description(slideID)
+        bar.update(1)
+
+        # if os.path.exists(f'{SAVE_PATH}/svs_info/{slideID}'):
+        #     print(f'slideID:{slideID} is already done!')
+        #     continue
+
+        error = export_pos(idx, slideID)
+        # if error != None:
+        #     f = open(f'{SAVE_PATH}/svs_info/error_list.txt', 'a', encoding='UTF-8')
+        #     f.write(f'{error}\n')
+        #     f.close()
+            

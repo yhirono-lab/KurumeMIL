@@ -1,5 +1,6 @@
 
 # slide(症例)を訓練用とテスト(valid)用に分割
+from MIL_train import train
 import os
 import csv
 
