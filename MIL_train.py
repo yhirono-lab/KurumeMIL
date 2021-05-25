@@ -267,7 +267,7 @@ if __name__ == '__main__':
     parser.add_argument('--num_gpu', default=1, help='input gpu num')
     args = parser.parse_args()
 
-    num_gpu = args.num_gpu #GPU数
+    num_gpu = args.num_gpu #argでGPUを入力
 
     train_slide = args.train
     valid_slide = args.valid
