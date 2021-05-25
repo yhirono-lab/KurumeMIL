@@ -13,6 +13,7 @@ import torch.multiprocessing as mp
 from torch.nn.parallel import DistributedDataParallel as DDP
 import time
 import sys
+import argparse
 from tqdm import tqdm
 
 def setup(rank, world_size):
@@ -34,16 +35,24 @@ def eval_ans(y_hat, label):
 
 def makedir(path):
     if not os.path.exists(path):
-        os.makedirs(path)
+        try:
+            os.makedirs(path)
+        except:
+            return
 
 
 def train(model, rank, loss_fn, optimizer, train_loader):
     model.train() #訓練モードに変更
+    accuracy = 0.0 #pbarの初期値用
+    class_loss = 0.0 #pbarの初期値用
     train_class_loss = 0.0
     correct_num = 0
+    count = 0
 
     bar = tqdm(total = len(train_loader))
     for input_tensor, slideID, class_label in train_loader:
+        postfix = f'accuracy:{accuracy:.3f}, loss:{class_loss:.3f}'
+        bar.set_postfix_str(postfix)
         bar.update(1)
 
         input_tensor = input_tensor.to(rank, non_blocking=True).squeeze(0)
@@ -55,58 +64,72 @@ def train(model, rank, loss_fn, optimizer, train_loader):
         # 各loss計算
         class_loss = loss_fn(class_prob, class_label)
         train_class_loss += class_loss.item()
+        correct_num += eval_ans(class_hat, class_label)
+        count += 1
+        accuracy = correct_num / count
 
         class_loss.backward() #逆伝播
         optimizer.step() #パラメータ更新
-        correct_num += eval_ans(class_hat, class_label)
 
     return train_class_loss, correct_num
 
 def valid(model, rank, loss_fn, valid_loader):
     model.eval() #訓練モードに変更
+    accuracy = 0.0 #pbarの初期値用
+    class_loss = 0.0 #pbarの初期値用
     test_class_loss = 0.0
     correct_num = 0
+    count = 0.0
+
+    bar = tqdm(total = len(valid_loader))
     for (input_tensor, slideID, class_label) in valid_loader:
+        postfix = f'accuracy:{accuracy:.3f}, loss:{class_loss:.3f}'
+        bar.set_postfix_str(postfix)
+        bar.update(1)
+
         # MILとバッチ学習のギャップを吸収
         input_tensor = input_tensor.to(rank, non_blocking=True)
         class_label = class_label.to(rank, non_blocking=True)
         for bag_num in range(input_tensor.shape[0]):
             with torch.no_grad():
                 class_prob, class_hat, A = model(input_tensor[bag_num])
+            
             # 各loss計算
             class_loss = loss_fn(class_prob, class_label[bag_num])
             test_class_loss += class_loss.item()
             correct_num += eval_ans(class_hat, class_label[bag_num])
+            count += 1
+            accuracy = correct_num / count
 
     return test_class_loss, correct_num
 
-SAVE_PATH = '/Kurume/yhirono/KurumeMIL'
+SAVE_PATH = '/Dataset/Kurume_Dataset/yhirono/KurumeMIL'
 
 #マルチプロセス (GPU) で実行される関数
 #rank : mp.spawnで呼び出すと勝手に追加される引数で, GPUが割り当てられている
 #world_size : mp.spawnの引数num_gpuに相当
-def train_model(rank, world_size, train_slide, valid_slide, name_mode, depth, leaf):
+def train_model(rank, world_size, train_slide, valid_slide, name_mode, depth, leaf, mag):
     setup(rank, world_size)
 
     ##################実験設定#######################################
-    if rank == 0:
-        print('train:'+train_slide)
-        print('valid:'+valid_slide)
-    
-    mag = '40x' # ('5x' or '10x' or '20x')
-    EPOCHS = 20
-    
+    # mag = '20x' # ('5x' or '10x' or '20x' or '40x')
+    EPOCHS = 40
     #device = 'cuda'
-    
     ################################################################
+    if leaf is not None:
+        dir_name = f'depth-{depth}_leaf-{leaf}'
+    else:
+        dir_name = f'depth-{depth}_leaf-all'
     
     # # 訓練用と検証用に症例を分割
     import dataset_kurume as ds
     train_dataset, valid_dataset, label_count = ds.load_leaf(train_slide, valid_slide, name_mode, depth, leaf)
-    print(len(train_dataset))
-
-    makedir(f'{SAVE_PATH}/train_log')
-    log = f'{SAVE_PATH}/train_log/log_{mag}_depth-{depth}_leaf-{leaf}_train-{train_slide}.csv'
+    if rank == 0:
+        print(f'train split:{train_slide} train slide count:{len(train_dataset)}')
+        print(f'valid split:{valid_slide}   valid slide count:{len(valid_dataset)}')
+    
+    makedir(f'{SAVE_PATH}/train_log/{dir_name}')
+    log = f'{SAVE_PATH}/train_log/{dir_name}/log_{mag}_train-{train_slide}.csv'
 
     if rank == 0:
         #ログヘッダー書き込み
@@ -146,7 +169,8 @@ def train_model(rank, world_size, train_slide, valid_slide, name_mode, depth, le
 
     # 訓練開始
     for epoch in range(EPOCHS):
-        print(f'epoch:{epoch}')
+        if rank == 0:
+            print(f'epoch:{epoch}')
 
         train_loss = 0.0
         train_acc = 0.0
@@ -177,7 +201,7 @@ def train_model(rank, world_size, train_slide, valid_slide, name_mode, depth, le
         )
 
         if epoch > 1 and epoch % 5 == 0:
-            lr = lr * 0.1 #学習率調整
+            lr = lr * 0.5 #学習率調整
         optimizer = optim.SGD(ddp_model.parameters(), lr=lr, momentum=0.9, weight_decay=0.0001)
         class_loss, correct_num = train(ddp_model, rank, loss_fn, optimizer, train_loader)
 
@@ -212,35 +236,49 @@ def train_model(rank, world_size, train_slide, valid_slide, name_mode, depth, le
         valid_loss += class_loss
         valid_acc += correct_num
 
-        train_loss /= float(len(train_loader.dataset))
-        train_acc /= float(len(train_loader.dataset))
-        valid_loss /= float(len(valid_loader.dataset))
-        valid_acc /= float(len(valid_loader.dataset))
+        # GPU１つあたりの精度を計算
+        train_loss /= float(len(train_loader.dataset))/float(world_size)
+        train_acc /= float(len(train_loader.dataset))/float(world_size)
+        valid_loss /= float(len(valid_loader.dataset))/float(world_size)
+        valid_acc /= float(len(valid_loader.dataset))/float(world_size)
 
-        f = open(log, 'a')
-        f_writer = csv.writer(f, lineterminator='\n')
-        f_writer.writerow([epoch, train_loss, train_acc, valid_loss, valid_acc])
-        f.close()
+        # epochごとにlossなどを保存
+        if rank == 0:
+            f = open(log, 'a')
+            f_writer = csv.writer(f, lineterminator='\n')
+            f_writer.writerow([epoch, train_loss, train_acc, valid_loss, valid_acc])
+            f.close()
+
         # epochごとにmodelのparams保存
         if rank == 0:
-            makedir(f'{SAVE_PATH}/model_params_depth/{depth}_leaf-{leaf}')
-            model_params_dir = f'{SAVE_PATH}/model_params/{mag}_train-{train_slide}_epoch-{epoch}.pth'
+            makedir(f'{SAVE_PATH}/model_params/{dir_name}')
+            model_params_dir = f'{SAVE_PATH}/model_params/{dir_name}/{mag}_train-{train_slide}_epoch-{epoch}.pth'
             torch.save(ddp_model.module.state_dict(), model_params_dir)
 
 if __name__ == '__main__':
 
-    num_gpu = 4 #GPU数
+    parser = argparse.ArgumentParser(description='This program is MIL using Kurume univ. data')
+    parser.add_argument('train', help='choose train data split')
+    parser.add_argument('valid', help='choose valid data split')
+    parser.add_argument('--depth', required=True, help='choose depth')
+    parser.add_argument('--leaf', default=None, help='choose leafs')
+    parser.add_argument('--mag', default='40x', choices=['5x', '10x', '20x', '40x'], help='choose mag')
+    parser.add_argument('--name', default='Simple', choices=['Full', 'Simple'], help='choose name_mode')
+    parser.add_argument('--num_gpu', default=1, help='input gpu num')
+    args = parser.parse_args()
 
-    args = sys.argv
-    train_slide = args[1]
-    valid_slide = args[2]
+    num_gpu = args.num_gpu #GPU数
 
-    name_mode = 'Simple'
-    depth = 1
-    leaf = None
+    train_slide = args.train
+    valid_slide = args.valid
+
+    name_mode = args.name
+    depth = args.depth
+    leaf = args.leaf
+    mag = args.mag # ('5x' or '10x' or '20x' or '40x')
 
     #マルチプロセスで実行するために呼び出す
     #train_model : マルチプロセスで実行する関数
     #args : train_modelの引数
     #nprocs : プロセス (GPU) の数
-    mp.spawn(train_model, args=(num_gpu, train_slide, valid_slide, name_mode, depth, leaf), nprocs=num_gpu, join=True)
+    mp.spawn(train_model, args=(num_gpu, train_slide, valid_slide, name_mode, depth, leaf, mag), nprocs=num_gpu, join=True)
