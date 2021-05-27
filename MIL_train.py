@@ -119,20 +119,24 @@ def train_model(rank, world_size, train_slide, valid_slide, name_mode, depth, le
     if classify_mode == 'subtype':
         dir_name = f'subtype_classify'
     elif leaf is not None:
-        dir_name = f'depth-{depth}_leaf-{leaf}'
+        dir_name = f'{classify_mode}/depth-{depth}_leaf-{leaf}'
     else:
-        dir_name = f'depth-{depth}_leaf-all'
+        dir_name = f'{classify_mode}/depth-{depth}_leaf-all'
     
     # # 訓練用と検証用に症例を分割
     import dataset_kurume as ds
-    if classify_mode == 'leaf':
-        train_dataset, valid_dataset, label_count = ds.load_leaf(train_slide, valid_slide, name_mode, depth, leaf)
+    if classify_mode == 'leaf' or classify_mode == 'new_tree':
+        train_dataset, valid_dataset, label_num = ds.load_leaf(train_slide, valid_slide, name_mode, depth, leaf, classify_mode)
     elif classify_mode == 'subtype':
-        train_dataset, valid_dataset, label_count = ds.load_svs(train_slide, valid_slide, name_mode)
-    
+        train_dataset, valid_dataset, label_num = ds.load_svs(train_slide, valid_slide, name_mode)
+
     if rank == 0:
         print(f'train split:{train_slide} train slide count:{len(train_dataset)}')
         print(f'valid split:{valid_slide}   valid slide count:{len(valid_dataset)}')
+        label_count = {}
+        for i in range(label_num):
+            label_count[str(i)] = len([d for d in train_dataset if d[1] == i])
+        print(f'train label count:{label_count}')
     
     makedir(f'{SAVE_PATH}/train_log/{dir_name}')
     log = f'{SAVE_PATH}/train_log/{dir_name}/log_{mag}_train-{train_slide}.csv'
@@ -151,7 +155,7 @@ def train_model(rank, world_size, train_slide, valid_slide, name_mode, depth, le
     from model import feature_extractor, class_predictor, MIL
     # 各ブロック宣言
     feature_extractor = feature_extractor()
-    class_predictor = class_predictor(label_count)
+    class_predictor = class_predictor(label_num)
     # model構築
     model = MIL(feature_extractor, class_predictor)
     model = model.to(rank)
@@ -204,7 +208,7 @@ def train_model(rank, world_size, train_slide, valid_slide, name_mode, depth, le
             batch_size=1,
             shuffle=False,
             pin_memory=False,
-            num_workers=4,
+            num_workers=os.cpu_count()//world_size,
             sampler=train_sampler
         )
 
@@ -234,7 +238,7 @@ def train_model(rank, world_size, train_slide, valid_slide, name_mode, depth, le
             batch_size=1,
             shuffle=False,
             pin_memory=False,
-            num_workers=4,
+            num_workers=os.cpu_count()//world_size,
             sampler=valid_sampler
         )
 
@@ -273,7 +277,7 @@ if __name__ == '__main__':
     parser.add_argument('--mag', default='40x', choices=['5x', '10x', '20x', '40x'], help='choose mag')
     parser.add_argument('--name', default='Simple', choices=['Full', 'Simple'], help='choose name_mode')
     parser.add_argument('--num_gpu', default=1, type=int, help='input gpu num')
-    parser.add_argument('-c', '--classify_mode', default='leaf', choices=['leaf', 'subtype', 'new'], help='leaf->based on tree, simple->based on subtype')
+    parser.add_argument('-c', '--classify_mode', default='leaf', choices=['leaf', 'subtype', 'new_tree'], help='leaf->based on tree, simple->based on subtype')
     args = parser.parse_args()
 
     num_gpu = args.num_gpu #argでGPUを入力
@@ -286,6 +290,11 @@ if __name__ == '__main__':
     leaf = args.leaf
     mag = args.mag # ('5x' or '10x' or '20x' or '40x')
     classify_mode = args.classify_mode
+
+    if classify_mode != 'subtype':
+        if depth == None:
+            print(f'mode:{classify_mode} needs depth param')
+            exit()
 
     #マルチプロセスで実行するために呼び出す
     #train_model : マルチプロセスで実行する関数

@@ -8,8 +8,11 @@ def read_leafCSV(filepath, label):
     reader = csv.reader(csv_data)
     file_data = []
     for row in reader:
-        if os.path.exists(f'/Dataset/Kurume_Dataset/svs_info/{row[0]}'):
+        if os.path.exists(f'/Dataset/Kurume_Dataset/svs_info/{row[0]}') and row[1] != 'OI_ILPD':
             file_data.append([row[0], label])
+        elif row[1] == 'OI_ILPD':
+            # print(f'slideID{row[0]}はOI_ILPDです')
+            continue
         else:
             # print(f'SlideID-{row[0]}は存在しません')
             continue
@@ -33,8 +36,12 @@ def read_CSV(filepath):
     csv_data.close()
     return file_data
 
-def load_leaf(train_num, valid_num, name_mode, depth, leaf):
-    dir_path = f'../KurumeTree/result/{name_mode}/unu_depth{depth}/leafs_data'
+def load_leaf(train_num, valid_num, name_mode, depth, leaf, c_mode):
+    if c_mode == 'leaf':
+        dir_path = f'../KurumeTree/result/{name_mode}/unu_depth{depth}/leafs_data'
+    if c_mode == 'new_tree':
+        dir_path = f'../KurumeTree/result_teacher/FDC/{name_mode}/unu_depth{depth}/leafs_data'
+
     if leaf == None:
         leaf_list = os.listdir(dir_path)
         leaf_count = len(leaf_list)
