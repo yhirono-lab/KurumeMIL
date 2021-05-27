@@ -113,7 +113,7 @@ def train_model(rank, world_size, train_slide, valid_slide, name_mode, depth, le
 
     ##################実験設定#######################################
     # mag = '20x' # ('5x' or '10x' or '20x' or '40x')
-    EPOCHS = 100
+    EPOCHS = 40
     #device = 'cuda'
     ################################################################
     if classify_mode == 'subtype':
