@@ -1,16 +1,32 @@
-
 # slide(症例)を訓練用とテスト(valid)用に分割
 from MIL_train import train
 import os
 import csv
 
-def readCSV(filepath, label):
+def read_leafCSV(filepath, label):
     csv_data = open(filepath)
     reader = csv.reader(csv_data)
     file_data = []
     for row in reader:
         if os.path.exists(f'/Dataset/Kurume_Dataset/svs_info/{row[0]}'):
             file_data.append([row[0], label])
+        else:
+            # print(f'SlideID-{row[0]}は存在しません')
+            continue
+    csv_data.close()
+    return file_data
+
+def read_CSV(filepath):
+    csv_data = open(filepath)
+    reader = csv.reader(csv_data)
+    file_data = []
+    name_data = {'DLBCL':0, 'FL':1, 'Reactive':2, 'CHL':3}
+    for row in reader:
+        if os.path.exists(f'/Dataset/Kurume_Dataset/svs_info/{row[0]}'):
+            if row[1] in name_data:
+                file_data.append([row[0], name_data[row[1]]])
+            else:
+                file_data.append([row[0], 4])
         else:
             # print(f'SlideID-{row[0]}は存在しません')
             continue
@@ -26,7 +42,7 @@ def load_leaf(train_num, valid_num, name_mode, depth, leaf):
         train_dataset = []
         valid_dataset = []
         for num in range(leaf_count):
-            leaf_data = readCSV(f'{dir_path}/leaf_{num}.csv', num)
+            leaf_data = read_leafCSV(f'{dir_path}/leaf_{num}.csv', num)
             for idx, slide in enumerate(leaf_data):
                 if str((idx%5)+1) in train_num:
                     train_dataset.append(slide)
@@ -44,7 +60,7 @@ def load_leaf(train_num, valid_num, name_mode, depth, leaf):
         train_dataset = []
         valid_dataset = []
         for num in leaf:
-            leaf_data = readCSV(f'{dir_path}/leaf_{num}.csv', int(num)%2)
+            leaf_data = read_leafCSV(f'{dir_path}/leaf_{num}.csv', int(num)%2)
             for idx, slide in enumerate(leaf_data):
                 if str((idx%5)+1) in train_num:
                     train_dataset.append(slide)
@@ -54,6 +70,20 @@ def load_leaf(train_num, valid_num, name_mode, depth, leaf):
         
         return train_dataset, valid_dataset, 2
     
+def load_svs(train_num, valid_num, name_mode):
+    file_name = f'./data/Data_{name_mode}Name.csv'
+    svs_data = read_CSV(file_name)
+    
+    train_dataset = []
+    valid_dataset = []
+    for idx, slide in enumerate(svs_data):
+        if str((idx%5)+1) in train_num:
+            train_dataset.append(slide)
+            
+        if str((idx%5)+1) in valid_num:
+            valid_dataset.append(slide)
+
+    return train_dataset, valid_dataset, 5
 
 
                 

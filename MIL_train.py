@@ -108,22 +108,28 @@ SAVE_PATH = '/Dataset/Kurume_Dataset/yhirono/KurumeMIL'
 #マルチプロセス (GPU) で実行される関数
 #rank : mp.spawnで呼び出すと勝手に追加される引数で, GPUが割り当てられている
 #world_size : mp.spawnの引数num_gpuに相当
-def train_model(rank, world_size, train_slide, valid_slide, name_mode, depth, leaf, mag):
+def train_model(rank, world_size, train_slide, valid_slide, name_mode, depth, leaf, mag, classify_mode):
     setup(rank, world_size)
 
     ##################実験設定#######################################
     # mag = '20x' # ('5x' or '10x' or '20x' or '40x')
-    EPOCHS = 40
+    EPOCHS = 100
     #device = 'cuda'
     ################################################################
-    if leaf is not None:
+    if classify_mode == 'subtype':
+        dir_name = f'subtype_classify'
+    elif leaf is not None:
         dir_name = f'depth-{depth}_leaf-{leaf}'
     else:
         dir_name = f'depth-{depth}_leaf-all'
     
     # # 訓練用と検証用に症例を分割
     import dataset_kurume as ds
-    train_dataset, valid_dataset, label_count = ds.load_leaf(train_slide, valid_slide, name_mode, depth, leaf)
+    if classify_mode == 'leaf':
+        train_dataset, valid_dataset, label_count = ds.load_leaf(train_slide, valid_slide, name_mode, depth, leaf)
+    elif classify_mode == 'subtype':
+        train_dataset, valid_dataset, label_count = ds.load_svs(train_slide, valid_slide, name_mode)
+    
     if rank == 0:
         print(f'train split:{train_slide} train slide count:{len(train_dataset)}')
         print(f'valid split:{valid_slide}   valid slide count:{len(valid_dataset)}')
@@ -149,6 +155,8 @@ def train_model(rank, world_size, train_slide, valid_slide, name_mode, depth, le
     # model構築
     model = MIL(feature_extractor, class_predictor)
     model = model.to(rank)
+    if rank == 0:
+        print(model)
 
     #MultiGPUに対応する処理
     process_group = torch.distributed.new_group([i for i in range(world_size)])
@@ -260,11 +268,12 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='This program is MIL using Kurume univ. data')
     parser.add_argument('train', help='choose train data split')
     parser.add_argument('valid', help='choose valid data split')
-    parser.add_argument('--depth', required=True, help='choose depth')
+    parser.add_argument('--depth', default=None, help='choose depth')
     parser.add_argument('--leaf', default=None, help='choose leafs')
     parser.add_argument('--mag', default='40x', choices=['5x', '10x', '20x', '40x'], help='choose mag')
     parser.add_argument('--name', default='Simple', choices=['Full', 'Simple'], help='choose name_mode')
-    parser.add_argument('--num_gpu', default=1, help='input gpu num')
+    parser.add_argument('--num_gpu', default=1, type=int, help='input gpu num')
+    parser.add_argument('-c', '--classify_mode', default='leaf', choices=['leaf', 'subtype'], help='leaf->based on tree, simple->based on subtype')
     args = parser.parse_args()
 
     num_gpu = args.num_gpu #argでGPUを入力
@@ -276,9 +285,10 @@ if __name__ == '__main__':
     depth = args.depth
     leaf = args.leaf
     mag = args.mag # ('5x' or '10x' or '20x' or '40x')
+    classify_mode = args.classify_mode
 
     #マルチプロセスで実行するために呼び出す
     #train_model : マルチプロセスで実行する関数
     #args : train_modelの引数
     #nprocs : プロセス (GPU) の数
-    mp.spawn(train_model, args=(num_gpu, train_slide, valid_slide, name_mode, depth, leaf, mag), nprocs=num_gpu, join=True)
+    mp.spawn(train_model, args=(num_gpu, train_slide, valid_slide, name_mode, depth, leaf, mag, classify_mode), nprocs=num_gpu, join=True)
