@@ -259,7 +259,7 @@ def train_model(rank, world_size, train_slide, valid_slide, name_mode, depth, le
 
         # epochごとにmodelのparams保存
         if rank == 0:
-            makedir(f'{SAVE_PATH}/model_params/{dir_name}')
+            makedir(f'{SAVE_PATH}/model_params/{dir_name}/{mag}_train-{train_slide}')
             model_params_dir = f'{SAVE_PATH}/model_params/{dir_name}/{mag}_train-{train_slide}_epoch-{epoch}.pth'
             torch.save(ddp_model.module.state_dict(), model_params_dir)
 
@@ -273,7 +273,7 @@ if __name__ == '__main__':
     parser.add_argument('--mag', default='40x', choices=['5x', '10x', '20x', '40x'], help='choose mag')
     parser.add_argument('--name', default='Simple', choices=['Full', 'Simple'], help='choose name_mode')
     parser.add_argument('--num_gpu', default=1, type=int, help='input gpu num')
-    parser.add_argument('-c', '--classify_mode', default='leaf', choices=['leaf', 'subtype'], help='leaf->based on tree, simple->based on subtype')
+    parser.add_argument('-c', '--classify_mode', default='leaf', choices=['leaf', 'subtype', 'new'], help='leaf->based on tree, simple->based on subtype')
     args = parser.parse_args()
 
     num_gpu = args.num_gpu #argでGPUを入力
