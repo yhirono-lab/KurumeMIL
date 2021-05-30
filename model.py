@@ -3,6 +3,14 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torchvision.models as models
 
+def set_LossFunction(dataset, rank):
+    # 不均衡データに対してlossの重みを調整
+    n_RIGHT = len(dataset[dataset[:,1]=='0'])
+    n_LEFT = len(dataset[dataset[:,1]=='1'])
+    weights = torch.tensor([1/(n_RIGHT/(n_RIGHT+n_LEFT)), 1/(n_LEFT/(n_RIGHT+n_LEFT))])
+    loss_fn = nn.CrossEntropyLoss(weight = weights.to(rank))
+    return loss_fn
+
 class feature_extractor(nn.Module):
     def __init__(self):
         super(feature_extractor, self).__init__()

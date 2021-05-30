@@ -4,6 +4,7 @@ import torchvision
 from torch import nn, optim
 import torch.nn.functional as F
 import numpy as np
+import matplotlib.pyplot as plt
 import csv
 import random
 import os
@@ -82,7 +83,7 @@ def valid(model, rank, loss_fn, valid_loader):
     count = 0.0
 
     bar = tqdm(total = len(valid_loader))
-    for (input_tensor, slideID, class_label) in valid_loader:
+    for input_tensor, slideID, class_label in valid_loader:
         postfix = f'accuracy:{accuracy:.3f}, loss:{class_loss:.3f}'
         bar.set_postfix_str(postfix)
         bar.update(1)
@@ -108,7 +109,7 @@ SAVE_PATH = '/Dataset/Kurume_Dataset/yhirono/KurumeMIL'
 #マルチプロセス (GPU) で実行される関数
 #rank : mp.spawnで呼び出すと勝手に追加される引数で, GPUが割り当てられている
 #world_size : mp.spawnの引数num_gpuに相当
-def train_model(rank, world_size, train_slide, valid_slide, name_mode, depth, leaf, mag, classify_mode):
+def train_model(rank, world_size, train_slide, valid_slide, name_mode, depth, leaf, mag, classify_mode, loss_mode, augmentation):
     setup(rank, world_size)
 
     ##################実験設定#######################################
@@ -119,14 +120,24 @@ def train_model(rank, world_size, train_slide, valid_slide, name_mode, depth, le
     if classify_mode == 'subtype':
         dir_name = f'subtype_classify'
     elif leaf is not None:
-        dir_name = f'{classify_mode}/depth-{depth}_leaf-{leaf}'
+        dir_name = f'{classify_mode}'
+        if loss_mode == 'invarse':
+            dir_name = f'{dir_name}_{loss_mode}'
+        if augmentation:
+            dir_name = f'{dir_name}_aug'
+        dir_name = f'{dir_name}/depth-{depth}_leaf-{leaf}'
     else:
-        dir_name = f'{classify_mode}/depth-{depth}_leaf-all'
+        dir_name = f'{classify_mode}'
+        if loss_mode == 'invarse':
+            dir_name = f'{dir_name}_{loss_mode}'
+        if augmentation:
+            dir_name = f'{dir_name}_aug'
+        dir_name = f'{dir_name}/depth-{depth}_leaf-all'
     
     # # 訓練用と検証用に症例を分割
     import dataset_kurume as ds
     if classify_mode == 'leaf' or classify_mode == 'new_tree':
-        train_dataset, valid_dataset, label_num = ds.load_leaf(train_slide, valid_slide, name_mode, depth, leaf, classify_mode)
+        train_dataset, valid_dataset, label_num = ds.load_leaf(train_slide, valid_slide, name_mode, depth, leaf, classify_mode, augmentation)
     elif classify_mode == 'subtype':
         train_dataset, valid_dataset, label_num = ds.load_svs(train_slide, valid_slide, name_mode)
 
@@ -152,7 +163,7 @@ def train_model(rank, world_size, train_slide, valid_slide, name_mode, depth, le
     torch.backends.cudnn.benchmark=True #cudnnベンチマークモード
 
     # model読み込み
-    from model import feature_extractor, class_predictor, MIL
+    from model import feature_extractor, class_predictor, MIL, set_LossFunction
     # 各ブロック宣言
     feature_extractor = feature_extractor()
     class_predictor = class_predictor(label_num)
@@ -170,7 +181,10 @@ def train_model(rank, world_size, train_slide, valid_slide, name_mode, depth, le
     ddp_model = DDP(model, device_ids=[rank])
 
     # クロスエントロピー損失関数使用
-    loss_fn = nn.CrossEntropyLoss()
+    if loss_mode == 'normal':
+        loss_fn = nn.CrossEntropyLoss()
+    if loss_mode == 'invarse':
+        loss_fn = set_LossFunction(np.array(train_dataset), rank)
     lr = 0.001
     
      # 前処理
@@ -278,26 +292,24 @@ if __name__ == '__main__':
     parser.add_argument('--name', default='Simple', choices=['Full', 'Simple'], help='choose name_mode')
     parser.add_argument('--num_gpu', default=1, type=int, help='input gpu num')
     parser.add_argument('-c', '--classify_mode', default='leaf', choices=['leaf', 'subtype', 'new_tree'], help='leaf->based on tree, simple->based on subtype')
+    parser.add_argument('--loss_mode', default='normal', choices=['normal','invarse'], help='select loss type')
+    parser.add_argument('-a', '--augmentation', action='store_true')
     args = parser.parse_args()
 
     num_gpu = args.num_gpu #argでGPUを入力
 
-    train_slide = args.train
-    valid_slide = args.valid
-
-    name_mode = args.name
-    depth = args.depth
-    leaf = args.leaf
-    mag = args.mag # ('5x' or '10x' or '20x' or '40x')
-    classify_mode = args.classify_mode
-
-    if classify_mode != 'subtype':
-        if depth == None:
-            print(f'mode:{classify_mode} needs depth param')
+    if args.classify_mode != 'subtype':
+        if args.depth == None:
+            print(f'mode:{args.classify_mode} needs depth param')
             exit()
 
     #マルチプロセスで実行するために呼び出す
     #train_model : マルチプロセスで実行する関数
     #args : train_modelの引数
     #nprocs : プロセス (GPU) の数
-    mp.spawn(train_model, args=(num_gpu, train_slide, valid_slide, name_mode, depth, leaf, mag, classify_mode), nprocs=num_gpu, join=True)
+    mp.spawn(train_model, 
+        args=(
+            args.num_gpu, args.train, args.valid, args.name, args.depth, args.leaf, args.mag, args.classify_mode, args.loss_mode, args.augmentation
+        ),
+        nprocs=num_gpu, join=True
+    )

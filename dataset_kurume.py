@@ -2,6 +2,7 @@
 from MIL_train import train
 import os
 import csv
+import numpy as np
 
 def read_leafCSV(filepath, label):
     csv_data = open(filepath)
@@ -36,7 +37,7 @@ def read_CSV(filepath):
     csv_data.close()
     return file_data
 
-def load_leaf(train_num, valid_num, name_mode, depth, leaf, c_mode):
+def load_leaf(train_num, valid_num, name_mode, depth, leaf, c_mode, augmentation):
     if c_mode == 'leaf':
         dir_path = f'../KurumeTree/result/{name_mode}/unu_depth{depth}/leafs_data'
     if c_mode == 'new_tree':
@@ -64,16 +65,28 @@ def load_leaf(train_num, valid_num, name_mode, depth, leaf, c_mode):
             print('隣接した葉ではありません')
             exit()
 
-        train_dataset = []
-        valid_dataset = []
+        dataset = []
         for num in leaf:
             leaf_data = read_leafCSV(f'{dir_path}/leaf_{num}.csv', int(num)%2)
-            for idx, slide in enumerate(leaf_data):
+            dataset.append(leaf_data)
+        min_leaf = np.argmin([len(dataset[0]), len(dataset[1])])
+        max_leaf = np.argmax([len(dataset[0]), len(dataset[1])])
+        ratio = len(dataset[max_leaf])//len(dataset[min_leaf])
+
+        train_dataset = []
+        valid_dataset = []
+        print(ratio)
+        for num in leaf:
+            for idx,slide in enumerate(dataset[int(num)]):
                 if str((idx%5)+1) in train_num:
-                    train_dataset.append(slide)
+                    train_dataset.append(slide+[0])
+
+                    if augmentation and int(num) == min_leaf:
+                        for aug_i in range(np.min([7, ratio-1])):
+                            train_dataset.append(slide+[aug_i+1])
                 
                 if str((idx%5)+1) in valid_num:
-                    valid_dataset.append(slide)
+                    valid_dataset.append(slide+[0])
         
         return train_dataset, valid_dataset, 2
     
