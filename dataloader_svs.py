@@ -14,13 +14,14 @@ DATA_PATH = '/Dataset/Kurume_Dataset' # データディレクトリ
 SVS_PATH = '/Raw/Kurume_Dataset'
 
 class Dataset_svs(torch.utils.data.Dataset):
-    def __init__(self, dataset, mag='40x', train = True, transform = None, bag_num=50, bag_size=100):
+    def __init__(self, dataset, class_count, mag='40x', train = True, transform = None, bag_num=50, bag_size=100):
 
         self.transform = transform
         self.train = train
         self.mag = mag
 
         self.bag_list = [] # 各バッグのパッチ情報を格納
+        self.class_num_list = [0 for c in range(class_count)]
 
         for slide_data in dataset:
 
@@ -46,6 +47,7 @@ class Dataset_svs(torch.utils.data.Dataset):
             for i in range(pos.shape[0]//bag_size):
                 patches = pos[i*bag_size:(i+1)*bag_size,:].tolist()
                 self.bag_list.append([patches, slideID, label, aug])
+                self.class_num_list[label] += 1
 
         if self.train: # trainの場合，バッグをシャッフル
             random.shuffle(self.bag_list)
@@ -105,7 +107,7 @@ class Dataset_svs(torch.utils.data.Dataset):
         if self.train:
             return bag, slideID, label
         else:
-            return bag, slideID, label, pos_list, aug
+            return bag, slideID, label, pos_list
     
 class AugTransform:
     def __init__(self, aug):

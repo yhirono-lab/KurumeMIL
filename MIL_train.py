@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+from ast import parse
 import torch
 import torchvision
 from torch import nn, optim
@@ -64,6 +65,7 @@ def train(model, rank, loss_fn, optimizer, train_loader):
         
         # 各loss計算
         class_loss = loss_fn(class_prob, class_label)
+        # print(class_loss,class_prob,class_label)
         train_class_loss += class_loss.item()
         correct_num += eval_ans(class_hat, class_label)
         count += 1
@@ -109,27 +111,30 @@ SAVE_PATH = '/Dataset/Kurume_Dataset/yhirono/KurumeMIL'
 #マルチプロセス (GPU) で実行される関数
 #rank : mp.spawnで呼び出すと勝手に追加される引数で, GPUが割り当てられている
 #world_size : mp.spawnの引数num_gpuに相当
-def train_model(rank, world_size, train_slide, valid_slide, name_mode, depth, leaf, mag, classify_mode, loss_mode, augmentation):
+def train_model(rank, world_size, train_slide, valid_slide, name_mode, depth, leaf, mag, classify_mode, loss_mode, constant, augmentation, restart):
     setup(rank, world_size)
 
     ##################実験設定#######################################
-    # mag = '20x' # ('5x' or '10x' or '20x' or '40x')
-    EPOCHS = 40
+    EPOCHS = 20
     #device = 'cuda'
     ################################################################
     if classify_mode == 'subtype':
         dir_name = f'subtype_classify'
     elif leaf is not None:
-        dir_name = f'{classify_mode}'
-        if loss_mode == 'invarse':
+        dir_name = classify_mode
+        if loss_mode != 'normal':
             dir_name = f'{dir_name}_{loss_mode}'
+        if loss_mode == 'LDAM':
+            dir_name = f'{dir_name}-{constant}'
         if augmentation:
             dir_name = f'{dir_name}_aug'
         dir_name = f'{dir_name}/depth-{depth}_leaf-{leaf}'
     else:
-        dir_name = f'{classify_mode}'
-        if loss_mode == 'invarse':
+        dir_name = classify_mode
+        if loss_mode != 'normal':
             dir_name = f'{dir_name}_{loss_mode}'
+        if loss_mode == 'LDAM':
+            dir_name = f'{dir_name}-{constant}'
         if augmentation:
             dir_name = f'{dir_name}_aug'
         dir_name = f'{dir_name}/depth-{depth}_leaf-all'
@@ -141,18 +146,18 @@ def train_model(rank, world_size, train_slide, valid_slide, name_mode, depth, le
     elif classify_mode == 'subtype':
         train_dataset, valid_dataset, label_num = ds.load_svs(train_slide, valid_slide, name_mode)
 
+    label_count = np.zeros(label_num)
+    for i in range(label_num):
+        label_count[i] = len([d for d in train_dataset if d[1] == i])
     if rank == 0:
         print(f'train split:{train_slide} train slide count:{len(train_dataset)}')
         print(f'valid split:{valid_slide}   valid slide count:{len(valid_dataset)}')
-        label_count = {}
-        for i in range(label_num):
-            label_count[str(i)] = len([d for d in train_dataset if d[1] == i])
         print(f'train label count:{label_count}')
     
     makedir(f'{SAVE_PATH}/train_log/{dir_name}')
     log = f'{SAVE_PATH}/train_log/{dir_name}/log_{mag}_train-{train_slide}.csv'
 
-    if rank == 0:
+    if rank == 0 and not restart:
         #ログヘッダー書き込み
         f = open(log, 'w')
         f_writer = csv.writer(f, lineterminator='\n')
@@ -163,12 +168,23 @@ def train_model(rank, world_size, train_slide, valid_slide, name_mode, depth, le
     torch.backends.cudnn.benchmark=True #cudnnベンチマークモード
 
     # model読み込み
-    from model import feature_extractor, class_predictor, MIL, set_LossFunction
+    from model import feature_extractor, class_predictor, MIL, set_LossFunction, CEInvarse, LDAMLoss
     # 各ブロック宣言
     feature_extractor = feature_extractor()
     class_predictor = class_predictor(label_num)
     # model構築
     model = MIL(feature_extractor, class_predictor)
+
+    # 途中で学習が止まってしまったとき用
+    if restart:
+        model_params_dir = f'{SAVE_PATH}/model_params/{dir_name}/{mag}_train-{train_slide}'
+        if os.path.exists(model_params_dir):
+            model_params_list = sorted(os.listdir(model_params_dir))
+            model_params_file = f'{model_params_dir}/{model_params_list[-1]}'
+            model.load_state_dict(torch.load(model_params_file))
+            restart_epoch = len(model_params_list)
+        else:
+            restart_epoch = 0
     model = model.to(rank)
     if rank == 0:
         print(model)
@@ -182,9 +198,13 @@ def train_model(rank, world_size, train_slide, valid_slide, name_mode, depth, le
 
     # クロスエントロピー損失関数使用
     if loss_mode == 'normal':
-        loss_fn = nn.CrossEntropyLoss()
+        loss_fn = nn.CrossEntropyLoss().to(rank)
     if loss_mode == 'invarse':
-        loss_fn = set_LossFunction(np.array(train_dataset), rank)
+        loss_fn = set_LossFunction(rank, label_count).to(rank)
+    if loss_mode == 'myinvarse':
+        loss_fn = CEInvarse(rank, label_count).to(rank)
+    if loss_mode == 'LDAM':
+        loss_fn = LDAMLoss(rank, label_count, Constant=float(constant)).to(rank)
     lr = 0.001
     
      # 前処理
@@ -198,20 +218,29 @@ def train_model(rank, world_size, train_slide, valid_slide, name_mode, depth, le
         if rank == 0:
             print(f'epoch:{epoch}')
 
+        if epoch > 1 and epoch % 5 == 0:
+            lr = lr * 0.5 #学習率調整
+        
         train_loss = 0.0
         train_acc = 0.0
         valid_loss = 0.0
         valid_acc = 0.0
 
+        if restart and epoch<restart_epoch:
+            if rank == 0:
+                print('this epoch already trained')
+            continue
+
         data_train = dataloader_svs.Dataset_svs(
             train=True,
             transform=transform,
             dataset=train_dataset,
+            class_count=label_num,
             mag=mag,
             bag_num=50,
             bag_size=100
         )
-
+        
         #Datasetをmulti GPU対応させる
         #下のDataLoaderで設定したbatch_sizeで各GPUに分配
         train_sampler = torch.utils.data.distributed.DistributedSampler(data_train, rank=rank)
@@ -226,8 +255,6 @@ def train_model(rank, world_size, train_slide, valid_slide, name_mode, depth, le
             sampler=train_sampler
         )
 
-        if epoch > 1 and epoch % 5 == 0:
-            lr = lr * 0.5 #学習率調整
         optimizer = optim.SGD(ddp_model.parameters(), lr=lr, momentum=0.9, weight_decay=0.0001)
         class_loss, correct_num = train(ddp_model, rank, loss_fn, optimizer, train_loader)
 
@@ -238,6 +265,7 @@ def train_model(rank, world_size, train_slide, valid_slide, name_mode, depth, le
             train=True,
             transform=transform,
             dataset=valid_dataset,
+            class_count=label_num,
             mag=mag,
             bag_num=50,
             bag_size=100
@@ -278,7 +306,7 @@ def train_model(rank, world_size, train_slide, valid_slide, name_mode, depth, le
         # epochごとにmodelのparams保存
         if rank == 0:
             makedir(f'{SAVE_PATH}/model_params/{dir_name}/{mag}_train-{train_slide}')
-            model_params_dir = f'{SAVE_PATH}/model_params/{dir_name}/{mag}_train-{train_slide}_epoch-{epoch}.pth'
+            model_params_dir = f'{SAVE_PATH}/model_params/{dir_name}/{mag}_train-{train_slide}/{mag}_train-{train_slide}_epoch-{epoch}.pth'
             torch.save(ddp_model.module.state_dict(), model_params_dir)
 
 if __name__ == '__main__':
@@ -292,8 +320,10 @@ if __name__ == '__main__':
     parser.add_argument('--name', default='Simple', choices=['Full', 'Simple'], help='choose name_mode')
     parser.add_argument('--num_gpu', default=1, type=int, help='input gpu num')
     parser.add_argument('-c', '--classify_mode', default='leaf', choices=['leaf', 'subtype', 'new_tree'], help='leaf->based on tree, simple->based on subtype')
-    parser.add_argument('--loss_mode', default='normal', choices=['normal','invarse'], help='select loss type')
+    parser.add_argument('-l', '--loss_mode', default='normal', choices=['normal','invarse','myinvarse','LDAM'], help='select loss type')
+    parser.add_argument('-C', '--constant', default=None)
     parser.add_argument('-a', '--augmentation', action='store_true')
+    parser.add_argument('-r', '--restart', action='store_true')
     args = parser.parse_args()
 
     num_gpu = args.num_gpu #argでGPUを入力
@@ -302,6 +332,10 @@ if __name__ == '__main__':
         if args.depth == None:
             print(f'mode:{args.classify_mode} needs depth param')
             exit()
+    
+    if args.loss_mode == 'LDAM' and args.constant == None:
+        print(f'when loss_mode is LDAM, input Constant param')
+        exit()
 
     #マルチプロセスで実行するために呼び出す
     #train_model : マルチプロセスで実行する関数
@@ -309,7 +343,8 @@ if __name__ == '__main__':
     #nprocs : プロセス (GPU) の数
     mp.spawn(train_model, 
         args=(
-            args.num_gpu, args.train, args.valid, args.name, args.depth, args.leaf, args.mag, args.classify_mode, args.loss_mode, args.augmentation
+            args.num_gpu, args.train, args.valid, args.name, args.depth, args.leaf,
+            args.mag, args.classify_mode, args.loss_mode, args.constant, args.augmentation, args.restart
         ),
         nprocs=num_gpu, join=True
     )

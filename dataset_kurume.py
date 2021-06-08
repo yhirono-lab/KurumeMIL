@@ -37,7 +37,7 @@ def read_CSV(filepath):
     csv_data.close()
     return file_data
 
-def load_leaf(train_num, valid_num, name_mode, depth, leaf, c_mode, augmentation):
+def load_leaf(train_num, valid_num, name_mode, depth, leaf, c_mode, augmentation=False):
     if c_mode == 'leaf':
         dir_path = f'../KurumeTree/result/{name_mode}/unu_depth{depth}/leafs_data'
     if c_mode == 'new_tree':
@@ -75,7 +75,6 @@ def load_leaf(train_num, valid_num, name_mode, depth, leaf, c_mode, augmentation
 
         train_dataset = []
         valid_dataset = []
-        print(ratio)
         for num in leaf:
             for idx,slide in enumerate(dataset[int(num)]):
                 if str((idx%5)+1) in train_num:

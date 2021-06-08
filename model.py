@@ -1,15 +1,55 @@
+from numpy.core.defchararray import index
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torchvision.models as models
+import numpy as np
 
-def set_LossFunction(dataset, rank):
+def set_LossFunction(rank, class_num_list):
     # 不均衡データに対してlossの重みを調整
-    n_RIGHT = len(dataset[dataset[:,1]=='0'])
-    n_LEFT = len(dataset[dataset[:,1]=='1'])
+    n_RIGHT = class_num_list[0]
+    n_LEFT = class_num_list[1]
     weights = torch.tensor([1/(n_RIGHT/(n_RIGHT+n_LEFT)), 1/(n_LEFT/(n_RIGHT+n_LEFT))])
     loss_fn = nn.CrossEntropyLoss(weight = weights.to(rank))
     return loss_fn
+
+class CEInvarse(nn.Module):
+    def __init__(self, rank, class_num_list, reduction_flag=False):
+        # 不均衡データに対してlossの重みを調整
+        super(CEInvarse, self).__init__()
+        n_RIGHT = class_num_list[0]
+        n_LEFT = class_num_list[1]
+        weight = torch.tensor([1/(n_RIGHT/(n_RIGHT+n_LEFT)), 1/(n_LEFT/(n_RIGHT+n_LEFT))])
+        self.weight = weight.to(rank)
+        self.reduction = torch.sum(self.weight)
+        self.reduction_flag = reduction_flag
+        
+    def forward(self, x, target):
+        if self.reduction_flag:
+            return self.weight[target[0]]*F.cross_entropy(x, target)/self.reduction
+        else:
+            return self.weight[target[0]]*F.cross_entropy(x, target)
+
+
+class LDAMLoss(nn.Module):
+    def __init__(self, rank, class_num_list, Constant=0.5, s=1):
+        super(LDAMLoss, self).__init__()
+        m_list = 1.0/np.sqrt(np.sqrt(class_num_list))
+        m_list = m_list * Constant
+        m_list = torch.cuda.FloatTensor(m_list)
+        self.class_num_list = class_num_list
+        self.m_list = m_list[None,:].to(rank)
+        self.s = s
+    
+    def forward(self, x, target):
+        index = F.one_hot(target, len(self.class_num_list)).type(torch.uint8)
+        index_float = index.type(torch.cuda.FloatTensor)
+        batch_m = torch.matmul(self.m_list, index_float.transpose(0,1))
+        batch_m = batch_m.view(-1,1)
+        x_m = x - batch_m
+
+        output = torch.where(index, x_m, x)
+        return F.cross_entropy(self.s*output, target)
 
 class feature_extractor(nn.Module):
     def __init__(self):
