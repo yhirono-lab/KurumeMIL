@@ -44,7 +44,6 @@ def export_pos(idx, slideID):
 
     h_list = range(b_h)
 
-    # svs.read_region((40000, 73168+224),0,(b_size,b_size)).convert('RGB')
     count = 0
     all_count = 0
     bar2 = tqdm(total = b_h*b_w)

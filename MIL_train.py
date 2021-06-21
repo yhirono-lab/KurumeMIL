@@ -106,7 +106,7 @@ def valid(model, rank, loss_fn, valid_loader):
 
     return test_class_loss, correct_num
 
-SAVE_PATH = '/Dataset/Kurume_Dataset/yhirono/KurumeMIL'
+SAVE_PATH = '.'
 
 #マルチプロセス (GPU) で実行される関数
 #rank : mp.spawnで呼び出すと勝手に追加される引数で, GPUが割り当てられている

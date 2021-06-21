@@ -17,20 +17,35 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torchvision.models as models
 
-device = 'cuda:0'
-class_num_list = np.array([10,90])
-weights = torch.tensor([1/(10/100),1/(90/100)]).to(device)
-print(weights)
-x = torch.tensor([[0.3335,0.886],[0.3335,0.886]]).to(device)
-target = torch.tensor([0,1]).to(device)
 
-loss_fn = nn.CrossEntropyLoss().to(device)
-loss_fn_w = nn.CrossEntropyLoss(weight=weights).to(device)
-loss1 = loss_fn(x, target)
-loss2 = loss_fn_w(x, target)
-loss3 = -x[0,target[0]]+torch.log(torch.exp(x[0,0])+torch.exp(x[0,1]))
-loss4 = -x[1,target[1]]+torch.log(torch.exp(x[1,0])+torch.exp(x[1,1]))
-print(loss1, loss2, loss3, loss4, (weights[0]*loss3+weights[1]*loss4)/torch.sum(weights))
+DATA_PATH = '/Dataset/Kurume_Dataset' # データディレクトリ
+SVS_PATH = '/Raw/Kurume_Dataset'
+slideID = '180183'
+pos_list = np.loadtxt(f'{DATA_PATH}/svs_info/{slideID}/{slideID}.csv', delimiter=',', dtype='int')
+np.random.shuffle(pos_list)
+pos = pos_list[0,:].tolist()
+
+b_size = 224
+svs_list = os.listdir(f'{SVS_PATH}/svs')
+svs_fn = [s for s in svs_list if slideID in s]
+svs = openslide.OpenSlide(f'{SVS_PATH}/svs/{svs_fn[0]}')
+img = svs.read_region((pos[0],pos[1]),0,(b_size,b_size)).convert('RGB')
+print(img)
+img.save(f'./patch_{pos[0]}_{pos[1]}.png')
+# device = 'cuda:0'
+# class_num_list = np.array([10,90])
+# weights = torch.tensor([1/(10/100),1/(90/100)]).to(device)
+# print(weights)
+# x = torch.tensor([[0.3335,0.886],[0.3335,0.886]]).to(device)
+# target = torch.tensor([0,1]).to(device)
+
+# loss_fn = nn.CrossEntropyLoss().to(device)
+# loss_fn_w = nn.CrossEntropyLoss(weight=weights).to(device)
+# loss1 = loss_fn(x, target)
+# loss2 = loss_fn_w(x, target)
+# loss3 = -x[0,target[0]]+torch.log(torch.exp(x[0,0])+torch.exp(x[0,1]))
+# loss4 = -x[1,target[1]]+torch.log(torch.exp(x[1,0])+torch.exp(x[1,1]))
+# print(loss1, loss2, loss3, loss4, (weights[0]*loss3+weights[1]*loss4)/torch.sum(weights))
 
 # sm = F.log_softmax(x, dim=1)
 # print(F.nll_loss(sm, target, weight=weights))

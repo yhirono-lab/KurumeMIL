@@ -83,7 +83,7 @@ def test(model, device, test_loader, output_file):
             f_writer.writerow(['attention']+att_list) # 各instanceのattention_weight書き込み
             f.close()
 
-SAVE_PATH = '/Dataset/Kurume_Dataset/yhirono/KurumeMIL'
+SAVE_PATH = '.'
 
 def test_model(gpu, train_slide, test_slide, name_mode, depth, leaf, mag, classify_mode, loss_mode, constant, augmentation):
 

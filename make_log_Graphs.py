@@ -1,4 +1,5 @@
 import os
+import shutil
 from re import S
 import sys
 import csv
@@ -56,7 +57,7 @@ def cal_log_ave(log_list, max_epoch):
         ave_log_data[epoch] += ave_data
     return ave_log_data
 
-def save_graph(data, max_epoch, save_dir):
+def save_graph(data, max_epoch, save_dir, filename):
     plt.style.use('default')
     sns.set()
     sns.set_style('whitegrid')
@@ -83,9 +84,12 @@ def save_graph(data, max_epoch, save_dir):
     ax.set_ylabel("value")
     # ax.set_ylim(0, 1.5)
     plt.show()
+    plt.title(filename)
 
     makedir(save_dir)
+    makedir('./graphs/all')
     plt.savefig(f'{save_dir}/acc_loss_graph.png')
+    plt.savefig(f'./graphs/all/{filename}_acc_loss_graph.png')
 
     f = open(f'{save_dir}/average_log.csv', 'w')
     f_writer = csv.writer(f, lineterminator='\n')
@@ -94,12 +98,13 @@ def save_graph(data, max_epoch, save_dir):
         f_writer.writerow([idx]+d.tolist())
     f.close()
 
-def save_test_cm(data, save_dir):
+def save_test_cm(data, save_dir, filename):
     cm = confusion_matrix(y_true=data[:,0], y_pred=data[:,1], labels=np.unique(data[:,0]).tolist())
     print(cm)
 
     f = open(f'{save_dir}/test_analytics.csv', 'w')
     f_writer = csv.writer(f, lineterminator='\n')
+    f_writer.writerow([filename])
     f_writer.writerow(['']+[f'pred:{i}' for i in range(len(cm))])
     total = 0
     correct = 0
@@ -118,36 +123,38 @@ def save_test_cm(data, save_dir):
     f_writer.writerow(['accuracy',acc])
     f.close()
 
+    shutil.copyfile(f'{save_dir}/test_analytics.csv', f'./graphs/all/{filename}_test_analytics.csv')
+
 def make_log_Graphs(depth, leaf, mag, classify_mode, loss_mode, constant, augmentation):
     if classify_mode == 'subtype':
         dir_name = f'subtype_classify'
+        filename = 'subtype_classify'
     elif leaf is not None:
         dir_name = classify_mode
+        filename = classify_mode
         if loss_mode != 'normal':
             dir_name = f'{dir_name}_{loss_mode}'
+            filename = f'{filename}_{loss_mode}'
         if loss_mode == 'LDAM':
             dir_name = f'{dir_name}-{constant}'
+            filename = f'{filename}_{constant}'
         if augmentation:
             dir_name = f'{dir_name}_aug'
+            filename = f'{filename}_aug'
         dir_name = f'{dir_name}/depth-{depth}_leaf-{leaf}'
+        filename = f'{filename}_depth-{depth}_leaf-{leaf}'
     else:
-        dir_name = classify_mode
-        if loss_mode != 'normal':
-            dir_name = f'{dir_name}_{loss_mode}'
-        if loss_mode == 'LDAM':
-            dir_name = f'{dir_name}-{constant}'
-        if augmentation:
-            dir_name = f'{dir_name}_aug'
-        dir_name = f'{dir_name}/depth-{depth}_leaf-all'
+        print('Please input leaf params')
+        exit()
 
     log_list, max_epoch = load_logfile(dir_name, mag)
     ave_log = cal_log_ave(log_list, max_epoch)
-    save_graph(ave_log, max_epoch, f'{SAVE_PATH}/graphs/{dir_name}')
+    save_graph(ave_log, max_epoch, f'{SAVE_PATH}/graphs/{dir_name}', filename)
 
     test_data = load_testresult(dir_name, mag)
-    save_test_cm(test_data, f'{SAVE_PATH}/graphs/{dir_name}')
+    save_test_cm(test_data, f'{SAVE_PATH}/graphs/{dir_name}', filename)
 
-SAVE_PATH = '/Dataset/Kurume_Dataset/yhirono/KurumeMIL'
+SAVE_PATH = '.'
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='This program is MIL using Kurume univ. data')
