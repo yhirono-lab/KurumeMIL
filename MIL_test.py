@@ -85,7 +85,7 @@ def test(model, device, test_loader, output_file):
 
 SAVE_PATH = '.'
 
-def test_model(gpu, train_slide, test_slide, name_mode, depth, leaf, mag, classify_mode, loss_mode, constant, augmentation):
+def test_model(gpu, train_slide, test_slide, name_mode, depth, leaf, mag, classify_mode, loss_mode, constant, augmentation, fc_flag):
 
     ##################実験設定#######################################
     device = f'cuda:{gpu}'
@@ -93,6 +93,8 @@ def test_model(gpu, train_slide, test_slide, name_mode, depth, leaf, mag, classi
     ################################################################
     if classify_mode == 'subtype':
         dir_name = f'subtype_classify'
+        if fc_flag:
+            dir_name = f'fc_{dir_name}'
     elif leaf is not None:
         dir_name = classify_mode
         if loss_mode != 'normal':
@@ -101,6 +103,8 @@ def test_model(gpu, train_slide, test_slide, name_mode, depth, leaf, mag, classi
             dir_name = f'{dir_name}-{constant}'
         if augmentation:
             dir_name = f'{dir_name}_aug'
+        if fc_flag:
+            dir_name = f'fc_{dir_name}'
         dir_name = f'{dir_name}/depth-{depth}_leaf-{leaf}'
     else:
         dir_name = classify_mode
@@ -110,6 +114,8 @@ def test_model(gpu, train_slide, test_slide, name_mode, depth, leaf, mag, classi
             dir_name = f'{dir_name}-{constant}'
         if augmentation:
             dir_name = f'{dir_name}_aug'
+        if fc_flag:
+            dir_name = f'fc_{dir_name}'
         dir_name = f'{dir_name}/depth-{depth}_leaf-all'
 
     # 訓練用と検証用に症例を分割
@@ -184,6 +190,7 @@ if __name__ == '__main__':
     parser.add_argument('-l', '--loss_mode', default='normal', choices=['normal','invarse','myinvarse','LDAM'], help='select loss type')
     parser.add_argument('-C', '--constant', default=None)
     parser.add_argument('-a', '--augmentation', action='store_true')
+    parser.add_argument('--fc', action='store_true')
     args = parser.parse_args()
 
     if args.classify_mode != 'subtype':
@@ -196,4 +203,4 @@ if __name__ == '__main__':
         exit()
 
     test_model(args.gpu, args.train, args.test, args.name, args.depth, args.leaf,
-            args.mag, args.classify_mode, args.loss_mode, args.constant, args.augmentation)
+            args.mag, args.classify_mode, args.loss_mode, args.constant, args.augmentation, args.fc)

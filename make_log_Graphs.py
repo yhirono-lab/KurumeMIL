@@ -125,10 +125,13 @@ def save_test_cm(data, save_dir, filename):
 
     shutil.copyfile(f'{save_dir}/test_analytics.csv', f'./graphs/all/{filename}_test_analytics.csv')
 
-def make_log_Graphs(depth, leaf, mag, classify_mode, loss_mode, constant, augmentation):
+def make_log_Graphs(depth, leaf, mag, classify_mode, loss_mode, constant, augmentation, fc_flag):
     if classify_mode == 'subtype':
         dir_name = f'subtype_classify'
         filename = 'subtype_classify'
+        if fc_flag:
+            dir_name = f'fc_{dir_name}'
+            filename = f'fc_{filename}'
     elif leaf is not None:
         dir_name = classify_mode
         filename = classify_mode
@@ -141,6 +144,9 @@ def make_log_Graphs(depth, leaf, mag, classify_mode, loss_mode, constant, augmen
         if augmentation:
             dir_name = f'{dir_name}_aug'
             filename = f'{filename}_aug'
+        if fc_flag:
+            dir_name = f'fc_{dir_name}'
+            filename = f'fc_{filename}'
         dir_name = f'{dir_name}/depth-{depth}_leaf-{leaf}'
         filename = f'{filename}_depth-{depth}_leaf-{leaf}'
     else:
@@ -166,6 +172,7 @@ if __name__ == '__main__':
     parser.add_argument('-l', '--loss_mode', default='normal', choices=['normal','invarse','myinvarse','LDAM'], help='select loss type')
     parser.add_argument('-C', '--constant', default=None)
     parser.add_argument('-a', '--augmentation', action='store_true')
+    parser.add_argument('--fc', action='store_true')
     args = parser.parse_args()
 
     if args.classify_mode != 'subtype':
@@ -178,4 +185,4 @@ if __name__ == '__main__':
         exit()
 
     make_log_Graphs(args.depth, args.leaf,
-            args.mag, args.classify_mode, args.loss_mode, args.constant, args.augmentation)
+            args.mag, args.classify_mode, args.loss_mode, args.constant, args.augmentation, args.fc)

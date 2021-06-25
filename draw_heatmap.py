@@ -8,6 +8,8 @@ import csv
 import matplotlib.pyplot as plt
 import cv2
 import openslide
+import torch
+import torchvision
 from tqdm import tqdm
 
 def makedir(path):
@@ -15,7 +17,7 @@ def makedir(path):
         os.makedirs(path)
 
 def get_slideID_name():
-    file_name = './data/Data_SimpleName.csv'
+    file_name = './data/Data_FullName.csv'
     csv_data = np.loadtxt(file_name, delimiter=',', dtype='str')
     name_list = {}
 
@@ -149,12 +151,13 @@ def save_high_low_patches(args, dir_name):
 def save_patch(slideID, label, data, save_dir, flag):
     if len(data[2]) > 0:
         b_size = 224
-        fig, ax = plt.subplots(3, 3)
-
         svs_fn = [s for s in svs_fn_list if slideID in s]
         svs = openslide.OpenSlide(f'/Raw/Kurume_Dataset/svs/{svs_fn[0]}')
 
         sort_idx = np.argsort(data[2])[::-1]
+        save_many_patch(slideID, svs, sort_idx, label, data, save_dir, flag)
+
+        fig, ax = plt.subplots(3, 3)
         for i in range(9):
             idx = sort_idx[i]
             pos_x = data[0][idx]
@@ -162,6 +165,8 @@ def save_patch(slideID, label, data, save_dir, flag):
             att = data[2][idx]
 
             b_img = svs.read_region((pos_x, pos_y), 0, (b_size,b_size)).convert('RGB')
+            # b_img.save(f'{save_dir}/save.png')
+            # exit()
             b_img = np.array(b_img)
 
             plt.subplot(3,3,i+1)
@@ -175,7 +180,8 @@ def save_patch(slideID, label, data, save_dir, flag):
         img_name = f'{slideID}_{label}_{flag}_{slideID_name_dict[slideID]}_high'
         fig.suptitle(f'{img_name}')
         makedir(f'{save_dir}/{label}_{flag}')
-        plt.savefig(f'{save_dir}/{label}_{flag}/{img_name}.tif', bbox_inches='tight', pad_inches=0.1)
+        plt.savefig(f'{save_dir}/{label}_{flag}/{img_name}.tif', bbox_inches='tight', pad_inches=0.1, format='tif', dpi=300)
+
 
         sort_idx = np.argsort(data[2])
         for i in range(9):
@@ -198,9 +204,41 @@ def save_patch(slideID, label, data, save_dir, flag):
         img_name = f'{slideID}_{label}_{flag}_{slideID_name_dict[slideID]}_low'
         fig.suptitle(f'{img_name}')
         makedir(f'{save_dir}/{label}_{flag}')
-        plt.savefig(f'{save_dir}/{label}_{flag}/{img_name}.tif', bbox_inches='tight', pad_inches=0.1)
+        plt.savefig(f'{save_dir}/{label}_{flag}/{img_name}.tif', bbox_inches='tight', pad_inches=0.1, format='tif', dpi=300)
 
 
+def save_many_patch(slideID, svs, sort_idx, label, data, save_dir, flag):
+    b_size = 224
+    img_num = 50
+    images = np.zeros((img_num, b_size, b_size, 3), np.uint8)
+    fig, ax = plt.subplots()
+    for i in range(img_num):
+        idx = sort_idx[i]
+        pos_x = data[0][idx]
+        pos_y = data[1][idx]
+        att = data[2][idx]
+
+        b_img = svs.read_region((pos_x, pos_y), 0, (b_size,b_size)).convert('RGB')
+        images[i] = b_img
+    
+    images = np.transpose(images, [0,3,1,2]) # NHWC -> NCHW に変換
+    images_tensor = torch.as_tensor(images)
+    joined_images_tensor = torchvision.utils.make_grid(images_tensor, nrow=10, padding=10)
+    joined_images = joined_images_tensor.numpy()
+
+    jointed = np.transpose(joined_images, [1,2,0]) # NCHW -> NHWCに変換
+    plt.tick_params(color='white', labelbottom=False, labelleft=False, labelright=False, labeltop=False)
+    img_name = f'{slideID}_{label}_{flag}_{slideID_name_dict[slideID]}'
+    plt.title(f'{img_name}')
+    plt.imshow(jointed)
+    makedir(f'{save_dir}/{label}_{flag}/many_patch/attention')
+    plt.savefig(f'{save_dir}/{label}_{flag}/many_patch/{img_name}.tif', bbox_inches='tight', pad_inches=0.1, format='tif', dpi=600)
+
+    f = open(f'{save_dir}/{label}_{flag}/many_patch/attention/{img_name}.csv', 'w')
+    for d in data:
+        f_writer = csv.writer(f, lineterminator='\n')
+        f_writer.writerow(d[0:50])
+    f.close()
 
 
 DATA_PATH = '/Dataset/Kurume_Dataset'
@@ -217,9 +255,10 @@ if __name__ == '__main__':
     parser.add_argument('--name', default='Simple', choices=['Full', 'Simple'], help='choose name_mode')
     parser.add_argument('--gpu', default=1, type=int, help='input gpu num')
     parser.add_argument('-c', '--classify_mode', default='leaf', choices=['leaf', 'subtype', 'new_tree'], help='leaf->based on tree, simple->based on subtype')
-    parser.add_argument('-l', '--loss_mode', default='normal', choices=['normal','invarse','myinvarse','LDAM'], help='select loss type')
+    parser.add_argument('-l', '--loss_mode', default='normal', choices=['normal','myinvarse','LDAM'], help='select loss type')
     parser.add_argument('-C', '--constant', default=None)
     parser.add_argument('-a', '--augmentation', action='store_true')
+    parser.add_argument('--fc', action='store_true')
     args = parser.parse_args()
 
     if args.classify_mode != 'subtype':
@@ -233,6 +272,8 @@ if __name__ == '__main__':
 
     if args.classify_mode == 'subtype':
         dir_name = f'subtype_classify'
+        if args.fc:
+            dir_name = f'fc_{dir_name}'
     elif args.leaf is not None:
         dir_name = args.classify_mode
         if args.loss_mode != 'normal':
@@ -241,6 +282,8 @@ if __name__ == '__main__':
             dir_name = f'{dir_name}-{args.constant}'
         if args.augmentation:
             dir_name = f'{dir_name}_aug'
+        if args.fc:
+            dir_name = f'fc_{dir_name}'
         dir_name = f'{dir_name}/depth-{args.depth}_leaf-{args.leaf}'
     else:
         dir_name = args.classify_mode
@@ -250,7 +293,9 @@ if __name__ == '__main__':
             dir_name = f'{dir_name}-{args.constant}'
         if args.augmentation:
             dir_name = f'{dir_name}_aug'
+        if args.fc:
+            dir_name = f'fc_{dir_name}'
         dir_name = f'{dir_name}/args.depth-{args.depth}_leaf-all'
 
-    # draw_heatmap(args, dir_name)
+    draw_heatmap(args, dir_name)
     save_high_low_patches(args, dir_name)

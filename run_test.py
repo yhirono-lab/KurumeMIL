@@ -16,6 +16,8 @@ command_list = [
     ['-c','new_tree','-l','LDAM','-C','0.5','-a'],
     ['-c','new_tree','-l','LDAM','-C','0.2'],
     ['-c','new_tree','-l','LDAM','-C','0.2','-a'],
+    ['-c','new_tree','-l','LDAM','-C','0.125'],
+    ['-c','new_tree','-l','LDAM','-C','0.175'],
 ]
 
 split_list = [

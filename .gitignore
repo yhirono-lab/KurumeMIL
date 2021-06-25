@@ -4,7 +4,7 @@ data/svs_info/
 /train_log/
 /model_params/
 /attention_map/
-/attention_patch_/
+/attention_patch/
 /.vscode
 
 # Byte-compiled / optimized / DLL files

@@ -111,7 +111,7 @@ SAVE_PATH = '.'
 #マルチプロセス (GPU) で実行される関数
 #rank : mp.spawnで呼び出すと勝手に追加される引数で, GPUが割り当てられている
 #world_size : mp.spawnの引数num_gpuに相当
-def train_model(rank, world_size, train_slide, valid_slide, name_mode, depth, leaf, mag, classify_mode, loss_mode, constant, augmentation, restart):
+def train_model(rank, world_size, train_slide, valid_slide, name_mode, depth, leaf, mag, classify_mode, loss_mode, constant, augmentation, restart, fc_flag):
     setup(rank, world_size)
 
     ##################実験設定#######################################
@@ -120,6 +120,8 @@ def train_model(rank, world_size, train_slide, valid_slide, name_mode, depth, le
     ################################################################
     if classify_mode == 'subtype':
         dir_name = f'subtype_classify'
+        if fc_flag:
+            dir_name = f'fc_{dir_name}'
     elif leaf is not None:
         dir_name = classify_mode
         if loss_mode != 'normal':
@@ -128,6 +130,8 @@ def train_model(rank, world_size, train_slide, valid_slide, name_mode, depth, le
             dir_name = f'{dir_name}-{constant}'
         if augmentation:
             dir_name = f'{dir_name}_aug'
+        if fc_flag:
+            dir_name = f'fc_{dir_name}'
         dir_name = f'{dir_name}/depth-{depth}_leaf-{leaf}'
     else:
         dir_name = classify_mode
@@ -137,6 +141,8 @@ def train_model(rank, world_size, train_slide, valid_slide, name_mode, depth, le
             dir_name = f'{dir_name}-{constant}'
         if augmentation:
             dir_name = f'{dir_name}_aug'
+        if fc_flag:
+            dir_name = f'fc_{dir_name}'
         dir_name = f'{dir_name}/depth-{depth}_leaf-all'
     
     # # 訓練用と検証用に症例を分割
@@ -188,6 +194,10 @@ def train_model(rank, world_size, train_slide, valid_slide, name_mode, depth, le
     model = model.to(rank)
     if rank == 0:
         print(model)
+    
+    if fc_flag:
+        for param in model.feature_extractor.parameters():
+            param.requires_grad = False
 
     #MultiGPUに対応する処理
     process_group = torch.distributed.new_group([i for i in range(world_size)])
@@ -199,8 +209,6 @@ def train_model(rank, world_size, train_slide, valid_slide, name_mode, depth, le
     # クロスエントロピー損失関数使用
     if loss_mode == 'normal':
         loss_fn = nn.CrossEntropyLoss().to(rank)
-    if loss_mode == 'invarse':
-        loss_fn = set_LossFunction(rank, label_count).to(rank)
     if loss_mode == 'myinvarse':
         loss_fn = CEInvarse(rank, label_count).to(rank)
     if loss_mode == 'LDAM':
@@ -319,11 +327,12 @@ if __name__ == '__main__':
     parser.add_argument('--mag', default='40x', choices=['5x', '10x', '20x', '40x'], help='choose mag')
     parser.add_argument('--name', default='Simple', choices=['Full', 'Simple'], help='choose name_mode')
     parser.add_argument('--num_gpu', default=1, type=int, help='input gpu num')
-    parser.add_argument('-c', '--classify_mode', default='leaf', choices=['leaf', 'subtype', 'new_tree'], help='leaf->based on tree, simple->based on subtype')
-    parser.add_argument('-l', '--loss_mode', default='normal', choices=['normal','invarse','myinvarse','LDAM'], help='select loss type')
+    parser.add_argument('-c', '--classify_mode', default='new_tree', choices=['leaf', 'subtype', 'new_tree'], help='leaf->based on tree, simple->based on subtype')
+    parser.add_argument('-l', '--loss_mode', default='normal', choices=['normal','myinvarse','LDAM'], help='select loss type')
     parser.add_argument('-C', '--constant', default=None)
     parser.add_argument('-a', '--augmentation', action='store_true')
     parser.add_argument('-r', '--restart', action='store_true')
+    parser.add_argument('--fc', action='store_true')
     args = parser.parse_args()
 
     num_gpu = args.num_gpu #argでGPUを入力
@@ -344,7 +353,7 @@ if __name__ == '__main__':
     mp.spawn(train_model, 
         args=(
             args.num_gpu, args.train, args.valid, args.name, args.depth, args.leaf,
-            args.mag, args.classify_mode, args.loss_mode, args.constant, args.augmentation, args.restart
+            args.mag, args.classify_mode, args.loss_mode, args.constant, args.augmentation, args.restart, args.fc
         ),
         nprocs=num_gpu, join=True
     )
