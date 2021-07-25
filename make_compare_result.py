@@ -123,7 +123,7 @@ if __name__ == '__main__':
     data_list = ['', 'add_reduce_']
     data_name_list = ['few', 'few_add']
 
-    # make_all_recall_list()
+    make_all_recall_list()
     make_all_log_graph()
                 
                 
