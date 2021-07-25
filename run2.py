@@ -12,15 +12,6 @@ import sys
 #     ['-c','new_tree','-l','LDAM','-C','0.2','--fc'],
 # ]
 command_list = [
-    ['-c','new_tree','-l','myinvarse','--data','add','--model','vgg11'],
-    ['-c','new_tree','-l','myinvarse','--data','add'],
-    ['-c','new_tree','-l','myinvarse','--model','vgg11'],
-    ['-c','new_tree','-l','LDAM','-C','0.1','--data','add'],
-    ['-c','new_tree','-l','LDAM','-C','0.3','--data','add'],
-    ['-c','new_tree','-l','LDAM','-C','0.5','--data','add'],
-    ['-c','new_tree','-l','LDAM','-C','0.1','--data','add','--model','vgg11'],
-    ['-c','new_tree','-l','LDAM','-C','0.3','--data','add','--model','vgg11'],
-    ['-c','new_tree','-l','LDAM','-C','0.5','--data','add','--model','vgg11'],
     ['-c','new_tree','-l','LDAM','-C','0.1','--model','vgg11'],
     ['-c','new_tree','-l','LDAM','-C','0.3','--model','vgg11'],
     ['-c','new_tree','-l','LDAM','-C','0.5','--model','vgg11'],
