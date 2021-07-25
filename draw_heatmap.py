@@ -11,13 +11,14 @@ import openslide
 import torch
 import torchvision
 from tqdm import tqdm
+import utils
 
 def makedir(path):
     if not os.path.isdir(path):
         os.makedirs(path)
 
 def get_slideID_name():
-    file_name = './data/Data_FullName.csv'
+    file_name = '../add_data/Data_FullName_svs.csv'
     csv_data = np.loadtxt(file_name, delimiter=',', dtype='str')
     name_list = {}
 
@@ -53,6 +54,7 @@ def load_att_data(dir_name):
 def load_bagatt_data(dir_name):
     test_fn_list = os.listdir(f'{SAVE_PATH}/test_result/{dir_name}')
     bagatt_data_list = {}
+    print(test_fn_list)
     for test_fn in test_fn_list:
         csv_data = open(f'{SAVE_PATH}/test_result/{dir_name}/{test_fn}')
         reader = csv.reader(csv_data)
@@ -129,7 +131,7 @@ def save_high_low_patches(args, dir_name):
         bar.update(1)
         
         data = bagatt_data_list[slideID]
-        label = data[0][1]
+        label = data[0][0]
         true_data = data[1]
         false_data = data[2]
         att = [float(a) for a in true_data[2]+false_data[2]]
@@ -151,7 +153,7 @@ def save_high_low_patches(args, dir_name):
 def save_patch(slideID, label, data, save_dir, flag):
     if len(data[2]) > 0:
         b_size = 224
-        svs_fn = [s for s in svs_fn_list if slideID in s]
+        svs_fn = [s for s in svs_fn_list if slideID in s[:11]]
         svs = openslide.OpenSlide(f'/Raw/Kurume_Dataset/svs/{svs_fn[0]}')
 
         sort_idx = np.argsort(data[2])[::-1]
@@ -251,15 +253,23 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='This program is MIL using Kurume univ. data')
     parser.add_argument('--depth', default=None, help='choose depth')
     parser.add_argument('--leaf', default=None, help='choose leafs')
+    parser.add_argument('--data', default='', choices=['', 'add'])
     parser.add_argument('--mag', default='40x', choices=['5x', '10x', '20x', '40x'], help='choose mag')
+    parser.add_argument('--model', default='', choices=['', 'vgg11'])
     parser.add_argument('--name', default='Simple', choices=['Full', 'Simple'], help='choose name_mode')
     parser.add_argument('--gpu', default=1, type=int, help='input gpu num')
     parser.add_argument('-c', '--classify_mode', default='leaf', choices=['leaf', 'subtype', 'new_tree'], help='leaf->based on tree, simple->based on subtype')
-    parser.add_argument('-l', '--loss_mode', default='normal', choices=['normal','myinvarse','LDAM'], help='select loss type')
+    parser.add_argument('-l', '--loss_mode', default='normal', choices=['normal','myinvarse','LDAM','focal'], help='select loss type')
     parser.add_argument('-C', '--constant', default=None)
+    parser.add_argument('-g', '--gamma', default=None)
     parser.add_argument('-a', '--augmentation', action='store_true')
     parser.add_argument('--fc', action='store_true')
+    parser.add_argument('--reduce', action='store_true')
     args = parser.parse_args()
+    
+    if args.data == 'add':
+        args.data = 'add_'
+        args.reduce = True
 
     if args.classify_mode != 'subtype':
         if args.depth == None:
@@ -270,32 +280,11 @@ if __name__ == '__main__':
         print(f'when loss_mode is LDAM, input Constant param')
         exit()
 
-    if args.classify_mode == 'subtype':
-        dir_name = f'subtype_classify'
-        if args.fc:
-            dir_name = f'fc_{dir_name}'
-    elif args.leaf is not None:
-        dir_name = args.classify_mode
-        if args.loss_mode != 'normal':
-            dir_name = f'{dir_name}_{args.loss_mode}'
-        if args.loss_mode == 'LDAM':
-            dir_name = f'{dir_name}-{args.constant}'
-        if args.augmentation:
-            dir_name = f'{dir_name}_aug'
-        if args.fc:
-            dir_name = f'fc_{dir_name}'
-        dir_name = f'{dir_name}/depth-{args.depth}_leaf-{args.leaf}'
-    else:
-        dir_name = args.classify_mode
-        if args.loss_mode != 'normal':
-            dir_name = f'{dir_name}_{args.loss_mode}'
-        if args.loss_mode == 'LDAM':
-            dir_name = f'{dir_name}-{args.constant}'
-        if args.augmentation:
-            dir_name = f'{dir_name}_aug'
-        if args.fc:
-            dir_name = f'fc_{dir_name}'
-        dir_name = f'{dir_name}/args.depth-{args.depth}_leaf-all'
+    if args.loss_mode == 'focal' and args.gamma == None:
+        print(f'when loss_mode is focal, input gamma param')
+        exit()
+
+    dir_name = utils.make_dirname(args)
 
     draw_heatmap(args, dir_name)
     save_high_low_patches(args, dir_name)

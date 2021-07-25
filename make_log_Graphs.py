@@ -7,11 +7,9 @@ import argparse
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
+from sklearn.base import MetaEstimatorMixin
 from sklearn.metrics import confusion_matrix, accuracy_score, precision_score, recall_score
-
-def makedir(path):
-    if not os.path.isdir(path):
-        os.makedirs(path)
+import utils
 
 def load_logfile(file_dir, mag):
     log_fn_list = os.listdir(f'{SAVE_PATH}/train_log/{file_dir}')
@@ -33,7 +31,7 @@ def load_logfile(file_dir, mag):
 def load_testresult(file_dir, mag):
     result_fn_list = os.listdir(f'{SAVE_PATH}/test_result/{file_dir}')
     result_fn_list = [result_fn for result_fn in result_fn_list if mag in result_fn and 'epoch' in result_fn]
-    print(result_fn_list)
+    print('load_testresult:',result_fn_list)
     result_data = []
     for result_fn in result_fn_list:
         csv_data = open(f'{SAVE_PATH}/test_result/{file_dir}/{result_fn}')
@@ -43,6 +41,57 @@ def load_testresult(file_dir, mag):
                 result_data.append([int(row[2]), int(row[3])])
         print(len(result_data))
     return np.array(result_data)
+
+# スライド単位の事後確率とラベルのリストを返す
+def get_slide_prob_label(file_dir, mag):
+    pred_corpus = {}
+    label_corpus = {}
+    slide_id_list = []
+
+    result_fn_list = os.listdir(f'{SAVE_PATH}/test_result/{file_dir}')
+    result_fn_list = [result_fn for result_fn in result_fn_list if mag in result_fn and 'epoch' in result_fn]
+    print('load_bagresult:',result_fn_list)
+
+    for result_fn in result_fn_list:
+        csv_file = f'{SAVE_PATH}/test_result/{file_dir}/{result_fn}'
+        with open(csv_file, 'r') as f:
+            reader = csv.reader(f)
+            for row in reader:
+                if(len(row)==6 or len(row)==9):
+                    slide_id = row[1]
+                    if len(row)==6:
+                        prob_list = [float(row[4]), float(row[5])] # [DLBCLの確率, FLの確率, RLの確率]
+                    elif len(row)==9:
+                        prob_list = [float(row[4]), float(row[5]), float(row[6]), float(row[7]), float(row[8])] # [DLBCLの確率, FLの確率, RLの確率]
+                    
+                    if(slide_id not in pred_corpus):
+                        pred_corpus[slide_id] = []
+                        label_corpus[slide_id] = int(row[2]) #正解ラベル
+
+                    pred_corpus[slide_id].append(prob_list)
+                    if(slide_id not in slide_id_list):
+                        slide_id_list.append(slide_id)
+
+    # slide単位の事後確率計算
+    slide_prob = []
+    true_label_list = []
+    pred_label_list = []
+
+    for slide_id in slide_id_list:
+        prob_list = pred_corpus[slide_id]
+        bag_num = len(prob_list) # Bagの数
+
+        total_prob_list = [0.0 for i in prob_list[0]]
+        for prob in prob_list:
+            total_prob_list = total_prob_list + np.log(prob)
+        total_prob_list = np.exp(total_prob_list / bag_num) 
+
+        slide_prob.append(list(total_prob_list))
+        true_label_list.append(label_corpus[slide_id])
+
+        pred_label_list.append(np.argmax(total_prob_list))
+
+    return slide_id_list, slide_prob, true_label_list, pred_label_list
 
 def cal_log_ave(log_list, max_epoch):
     ave_log_data = np.zeros((max_epoch, 4))    
@@ -86,8 +135,8 @@ def save_graph(data, max_epoch, save_dir, filename):
     plt.show()
     plt.title(filename)
 
-    makedir(save_dir)
-    makedir('./graphs/all')
+    utils.makedir(save_dir)
+    utils.makedir('./graphs/all')
     plt.savefig(f'{save_dir}/acc_loss_graph.png')
     plt.savefig(f'./graphs/all/{filename}_acc_loss_graph.png')
 
@@ -98,14 +147,35 @@ def save_graph(data, max_epoch, save_dir, filename):
         f_writer.writerow([idx]+d.tolist())
     f.close()
 
-def save_test_cm(data, save_dir, filename):
-    cm = confusion_matrix(y_true=data[:,0], y_pred=data[:,1], labels=np.unique(data[:,0]).tolist())
-    print(cm)
+def save_test_cm(bag_label, slide_label, save_dir, filename):
+    cm = confusion_matrix(y_true=bag_label[0], y_pred=bag_label[1], labels=np.unique(bag_label[0]).tolist())
+    print('bag result\n',cm)
 
     f = open(f'{save_dir}/test_analytics.csv', 'w')
     f_writer = csv.writer(f, lineterminator='\n')
     f_writer.writerow([filename])
-    f_writer.writerow(['']+[f'pred:{i}' for i in range(len(cm))])
+    f_writer.writerow(['Bag']+[f'pred:{i}' for i in range(len(cm))])
+    total = 0
+    correct = 0
+    recall_list = []
+    for i in range(len(cm)):
+        row_total = 0
+        for j in range(len(cm)):
+            total += cm[i][j]
+            row_total += cm[i][j]
+        recall_list.append(cm[i][i]/row_total)
+        correct += cm[i][i]
+        f_writer.writerow([f'true:{i}']+cm[i].tolist())
+    acc = correct/total
+    f_writer.writerow(['recall']+recall_list)
+    f_writer.writerow(['total',total])
+    f_writer.writerow(['accuracy',acc])
+
+    f_writer.writerow([])
+
+    cm = confusion_matrix(y_true=slide_label[0], y_pred=slide_label[1], labels=np.unique(slide_label[0]).tolist())
+    print('slide result\n',cm)
+    f_writer.writerow(['Slide']+[f'pred:{i}' for i in range(len(cm))])
     total = 0
     correct = 0
     recall_list = []
@@ -125,40 +195,21 @@ def save_test_cm(data, save_dir, filename):
 
     shutil.copyfile(f'{save_dir}/test_analytics.csv', f'./graphs/all/{filename}_test_analytics.csv')
 
-def make_log_Graphs(depth, leaf, mag, classify_mode, loss_mode, constant, augmentation, fc_flag):
-    if classify_mode == 'subtype':
-        dir_name = f'subtype_classify'
-        filename = 'subtype_classify'
-        if fc_flag:
-            dir_name = f'fc_{dir_name}'
-            filename = f'fc_{filename}'
-    elif leaf is not None:
-        dir_name = classify_mode
-        filename = classify_mode
-        if loss_mode != 'normal':
-            dir_name = f'{dir_name}_{loss_mode}'
-            filename = f'{filename}_{loss_mode}'
-        if loss_mode == 'LDAM':
-            dir_name = f'{dir_name}-{constant}'
-            filename = f'{filename}_{constant}'
-        if augmentation:
-            dir_name = f'{dir_name}_aug'
-            filename = f'{filename}_aug'
-        if fc_flag:
-            dir_name = f'fc_{dir_name}'
-            filename = f'fc_{filename}'
-        dir_name = f'{dir_name}/depth-{depth}_leaf-{leaf}'
-        filename = f'{filename}_depth-{depth}_leaf-{leaf}'
-    else:
-        print('Please input leaf params')
-        exit()
+def make_log_Graphs(args): 
+    dir_name = utils.make_dirname(args)
+    filename = utils.make_filename(args)
+    print(filename)
 
-    log_list, max_epoch = load_logfile(dir_name, mag)
+    log_list, max_epoch = load_logfile(dir_name, args.mag)
     ave_log = cal_log_ave(log_list, max_epoch)
     save_graph(ave_log, max_epoch, f'{SAVE_PATH}/graphs/{dir_name}', filename)
 
-    test_data = load_testresult(dir_name, mag)
-    save_test_cm(test_data, f'{SAVE_PATH}/graphs/{dir_name}', filename)
+    test_data = load_testresult(dir_name, args.mag)
+    _, _, true_label_list, pred_label_list = get_slide_prob_label(dir_name, args.mag)
+
+    bag_label = [test_data[:,0], test_data[:,1]]
+    slide_label = [true_label_list, pred_label_list]
+    save_test_cm(bag_label, slide_label, f'{SAVE_PATH}/graphs/{dir_name}', filename)
 
 SAVE_PATH = '.'
 
@@ -166,14 +217,22 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='This program is MIL using Kurume univ. data')
     parser.add_argument('--depth', default=None, help='choose depth')
     parser.add_argument('--leaf', default=None, help='choose leafs')
+    parser.add_argument('--data', default='', choices=['', 'add'])
+    parser.add_argument('--model', default='', choices=['', 'vgg11'])
     parser.add_argument('--mag', default='40x', choices=['5x', '10x', '20x', '40x'], help='choose mag')
     parser.add_argument('--name', default='Simple', choices=['Full', 'Simple'], help='choose name_mode')
     parser.add_argument('-c', '--classify_mode', default='leaf', choices=['leaf', 'subtype', 'new_tree'], help='leaf->based on tree, simple->based on subtype')
-    parser.add_argument('-l', '--loss_mode', default='normal', choices=['normal','invarse','myinvarse','LDAM'], help='select loss type')
+    parser.add_argument('-l', '--loss_mode', default='normal', choices=['normal','invarse','myinvarse','LDAM','focal'], help='select loss type')
     parser.add_argument('-C', '--constant', default=None)
+    parser.add_argument('-g', '--gamma', default=None)
     parser.add_argument('-a', '--augmentation', action='store_true')
     parser.add_argument('--fc', action='store_true')
+    parser.add_argument('--reduce', action='store_true')
     args = parser.parse_args()
+
+    if args.data == 'add':
+        args.data = 'add_'
+        args.reduce = True
 
     if args.classify_mode != 'subtype':
         if args.depth == None:
@@ -183,6 +242,9 @@ if __name__ == '__main__':
     if args.loss_mode == 'LDAM' and args.constant == None:
         print(f'when loss_mode is LDAM, input Constant param')
         exit()
+    
+    if args.loss_mode == 'focal' and args.gamma == None:
+        print(f'when loss_mode is focal, input gamma param')
+        exit()
 
-    make_log_Graphs(args.depth, args.leaf,
-            args.mag, args.classify_mode, args.loss_mode, args.constant, args.augmentation, args.fc)
+    make_log_Graphs(args)

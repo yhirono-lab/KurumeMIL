@@ -4,14 +4,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torchvision.models as models
 import numpy as np
-
-def set_LossFunction(rank, class_num_list):
-    # 不均衡データに対してlossの重みを調整
-    n_RIGHT = class_num_list[0]
-    n_LEFT = class_num_list[1]
-    weights = torch.tensor([1/(n_RIGHT/(n_RIGHT+n_LEFT)), 1/(n_LEFT/(n_RIGHT+n_LEFT))])
-    loss_fn = nn.CrossEntropyLoss(weight = weights.to(rank))
-    return loss_fn
+from torchvision.models.vgg import vgg11
 
 class CEInvarse(nn.Module):
     def __init__(self, rank, class_num_list, reduction_flag=False):
@@ -29,6 +22,31 @@ class CEInvarse(nn.Module):
             return self.weight[target[0]]*F.cross_entropy(x, target)/self.reduction
         else:
             return self.weight[target[0]]*F.cross_entropy(x, target)
+
+
+class FocalLoss(nn.Module):
+    def __init__(self, rank, class_num_list, gamma=1.0):
+        # ほとんどが識別に関係のない背景であることを考慮したLoss
+        # 大きく間違っている場合は通常のCE-Lossと同じだが、
+        # ほぼ正解している場合に対してはLossとして計上しない仕組み
+        super(FocalLoss, self).__init__()
+        self.rank = rank
+        self.class_num_list = class_num_list
+        self.gamma = gamma
+        
+    def forward(self, x, target):
+        index = F.one_hot(target, len(self.class_num_list)).type(torch.uint8)
+        x_softmax = F.softmax(x, dim=1).to(self.rank)
+        loss = -1. * index * torch.log(x_softmax) # cross entropy
+        loss = loss * (1 - x_softmax) ** self.gamma # focal loss
+        # weight = torch.pow(1-x_softmax, self.gamma).to(self.rank)
+        # print(x,x_softmax)
+        # print(target,weight)
+        # print(F.cross_entropy(x, target),loss)
+        # print(weight[0,target[0]]*F.cross_entropy(x, target))
+        # exit()
+        # loss_handmade =  weight[0,target[0]]*F.cross_entropy(x, target)
+        return loss.sum()
 
 
 class LDAMLoss(nn.Module):
@@ -52,10 +70,13 @@ class LDAMLoss(nn.Module):
         return F.cross_entropy(self.s*output, target)
 
 class feature_extractor(nn.Module):
-    def __init__(self):
+    def __init__(self, model_select):
         super(feature_extractor, self).__init__()
-        vgg16 = models.vgg16(pretrained=True)
-        self.feature_ex = nn.Sequential(*list(vgg16.children())[:-1])
+        if model_select == '':
+            feature_ex = models.vgg16(pretrained=True)
+        elif model_select == 'vgg11':
+            feature_ex = models.vgg11(pretrained=True)
+        self.feature_ex = nn.Sequential(*list(feature_ex.children())[:-1])
     
     def forward(self, input):
         x = input.squeeze(0)

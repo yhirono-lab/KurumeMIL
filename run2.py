@@ -1,15 +1,29 @@
 import subprocess
 import sys
 
+# command_list = [
+#     ['-c','subtype','--fc'],
+#     ['-c','leaf','--fc'], 
+#     ['-c','new_tree','--fc','-r'], 
+#     ['-c','new_tree','-l','myinvarse','--fc'],
+#     ['-c','new_tree','-l','LDAM','-C','0.1','--fc','-r'],
+#     ['-c','new_tree','-l','LDAM','-C','0.3','--fc'],
+#     ['-c','new_tree','-l','LDAM','-C','0.5','--fc'],
+#     ['-c','new_tree','-l','LDAM','-C','0.2','--fc'],
+# ]
 command_list = [
-    ['-c','subtype','--fc'],
-    ['-c','leaf','--fc'], 
-    ['-c','new_tree','--fc','-r'], 
-    ['-c','new_tree','-l','myinvarse','--fc'],
-    ['-c','new_tree','-l','LDAM','-C','0.1','--fc','-r'],
-    ['-c','new_tree','-l','LDAM','-C','0.3','--fc'],
-    ['-c','new_tree','-l','LDAM','-C','0.5','--fc'],
-    ['-c','new_tree','-l','LDAM','-C','0.2','--fc'],
+    ['-c','new_tree','-l','myinvarse','--data','add','--model','vgg11'],
+    ['-c','new_tree','-l','myinvarse','--data','add'],
+    ['-c','new_tree','-l','myinvarse','--model','vgg11'],
+    ['-c','new_tree','-l','LDAM','-C','0.1','--data','add'],
+    ['-c','new_tree','-l','LDAM','-C','0.3','--data','add'],
+    ['-c','new_tree','-l','LDAM','-C','0.5','--data','add'],
+    ['-c','new_tree','-l','LDAM','-C','0.1','--data','add','--model','vgg11'],
+    ['-c','new_tree','-l','LDAM','-C','0.3','--data','add','--model','vgg11'],
+    ['-c','new_tree','-l','LDAM','-C','0.5','--data','add','--model','vgg11'],
+    ['-c','new_tree','-l','LDAM','-C','0.1','--model','vgg11'],
+    ['-c','new_tree','-l','LDAM','-C','0.3','--model','vgg11'],
+    ['-c','new_tree','-l','LDAM','-C','0.5','--model','vgg11'],
 ]
 
 split_list = [
@@ -21,9 +35,9 @@ args = sys.argv
 if len(args)!=2:
     exit()
 
-mode_option = [[0,1],[2,3],[4,5],[6,7]]
-mode_option = [[2,3,4,7,5,6,0,1]]
-mode_list = mode_option[int(args[1])]
+# mode_option = [[0,1],[2,3],[4,5],[6,7]]
+# mode_list = mode_option[int(args[1])]
+mode_list = range(len(command_list))
 
 gpu = int(args[1])
 

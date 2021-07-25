@@ -15,6 +15,7 @@ import matplotlib.pyplot as plt
 import sys
 import argparse
 from tqdm import tqdm
+import utils
 
 #正誤確認関数(正解:ans=1, 不正解:ans=0)
 def eval_ans(y_hat, label):
@@ -25,9 +26,6 @@ def eval_ans(y_hat, label):
         ans = 0
     return ans
 
-def makedir(path):
-    if not os.path.isdir(path):
-        os.makedirs(path)
 
 def select_epoch(log_file):
     if not os.path.exists(log_file):
@@ -38,6 +36,7 @@ def select_epoch(log_file):
     valid_loss = train_log[1:,3].astype(np.float32)
     valid_loss[:5]=1000
     return np.argmin(valid_loss)
+
 
 def update_test_result(test_dir, test_name, epoch_m):
     test_fn_list = os.listdir(test_dir)
@@ -85,56 +84,31 @@ def test(model, device, test_loader, output_file):
 
 SAVE_PATH = '.'
 
-def test_model(gpu, train_slide, test_slide, name_mode, depth, leaf, mag, classify_mode, loss_mode, constant, augmentation, fc_flag):
+def test_model(args):
 
     ##################実験設定#######################################
-    device = f'cuda:{gpu}'
+    device = f'cuda:{args.gpu}'
     torch.backends.cudnn.benchmark=True #cudnnベンチマークモード
     ################################################################
-    if classify_mode == 'subtype':
-        dir_name = f'subtype_classify'
-        if fc_flag:
-            dir_name = f'fc_{dir_name}'
-    elif leaf is not None:
-        dir_name = classify_mode
-        if loss_mode != 'normal':
-            dir_name = f'{dir_name}_{loss_mode}'
-        if loss_mode == 'LDAM':
-            dir_name = f'{dir_name}-{constant}'
-        if augmentation:
-            dir_name = f'{dir_name}_aug'
-        if fc_flag:
-            dir_name = f'fc_{dir_name}'
-        dir_name = f'{dir_name}/depth-{depth}_leaf-{leaf}'
-    else:
-        dir_name = classify_mode
-        if loss_mode != 'normal':
-            dir_name = f'{dir_name}_{loss_mode}'
-        if loss_mode == 'LDAM':
-            dir_name = f'{dir_name}-{constant}'
-        if augmentation:
-            dir_name = f'{dir_name}_aug'
-        if fc_flag:
-            dir_name = f'fc_{dir_name}'
-        dir_name = f'{dir_name}/depth-{depth}_leaf-all'
+    dir_name = utils.make_dirname(args)
 
     # 訓練用と検証用に症例を分割
     import dataset_kurume as ds
-    if classify_mode == 'leaf' or classify_mode == 'new_tree':
-        _, test_dataset, label_num = ds.load_leaf(train_slide, test_slide, name_mode, depth, leaf, classify_mode)
-    elif classify_mode == 'subtype':
-        _, test_dataset, label_num = ds.load_svs(train_slide, test_slide, name_mode)
+    if args.classify_mode == 'leaf' or args.classify_mode == 'new_tree':
+        _, test_dataset, label_num = ds.load_leaf(args)
+    elif args.classify_mode == 'subtype':
+        _, test_dataset, label_num = ds.load_svs(args)
 
-    log = f'{SAVE_PATH}/train_log/{dir_name}/log_{mag}_train-{train_slide}.csv'
+    log = f'{SAVE_PATH}/train_log/{dir_name}/log_{args.mag}_train-{args.train}.csv'
     epoch_m = select_epoch(log)
     print(f'best epoch is {epoch_m}')
 
     # resultファイルの作成
-    makedir(f'{SAVE_PATH}/test_result/{dir_name}')
-    result = f'{SAVE_PATH}/test_result/{dir_name}/test_{mag}_train-{train_slide}_epoch-{epoch_m}.csv'
-    update_test_result(f'{SAVE_PATH}/test_result/{dir_name}', f'test_{mag}_train-{train_slide}', epoch_m)
+    utils.makedir(f'{SAVE_PATH}/test_result/{dir_name}')
+    result = f'{SAVE_PATH}/test_result/{dir_name}/test_{args.mag}_train-{args.train}_epoch-{epoch_m}.csv'
+    update_test_result(f'{SAVE_PATH}/test_result/{dir_name}', f'test_{args.mag}_train-{args.train}', epoch_m)
     if os.path.exists(result):
-        print(f'[{dir_name}/test_{mag}_train-{train_slide}_epoch-{epoch_m}.csv] has been already done')
+        print(f'[{dir_name}/test_{args.mag}_train-{args.train}_epoch-{epoch_m}.csv] has been already done')
         exit()
     f = open(result, 'w')
     f.close()
@@ -142,11 +116,11 @@ def test_model(gpu, train_slide, test_slide, name_mode, depth, leaf, mag, classi
     # model読み込み
     from model import feature_extractor, class_predictor, MIL
     # 各ブロック宣言
-    feature_extractor = feature_extractor()
+    feature_extractor = feature_extractor(args.model)
     class_predictor = class_predictor(label_num)
     # DAMIL構築
     model = MIL(feature_extractor, class_predictor)
-    model_params = f'{SAVE_PATH}/model_params/{dir_name}/{mag}_train-{train_slide}/{mag}_train-{train_slide}_epoch-{epoch_m}.pth'
+    model_params = f'{SAVE_PATH}/model_params/{dir_name}/{args.mag}_train-{args.train}/{args.mag}_train-{args.train}_epoch-{epoch_m}.pth'
     model.load_state_dict(torch.load(model_params, map_location='cuda'))
     model = model.to(device)
 
@@ -161,7 +135,7 @@ def test_model(gpu, train_slide, test_slide, name_mode, depth, leaf, mag, classi
         transform=transform,
         dataset=test_dataset,
         class_count=label_num,
-        mag=mag,
+        mag=args.mag,
         bag_num=50,
         bag_size=100
     )
@@ -180,18 +154,26 @@ def test_model(gpu, train_slide, test_slide, name_mode, depth, leaf, mag, classi
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='This program is MIL using Kurume univ. data')
     parser.add_argument('train', help='choose train data split')
-    parser.add_argument('test', help='choose valid data split')
+    parser.add_argument('valid', help='choose valid data split')
     parser.add_argument('--depth', default=None, help='choose depth')
     parser.add_argument('--leaf', default=None, help='choose leafs')
+    parser.add_argument('--data', default='', choices=['', 'add'])
     parser.add_argument('--mag', default='40x', choices=['5x', '10x', '20x', '40x'], help='choose mag')
-    parser.add_argument('--name', default='Simple', choices=['Full', 'Simple'], help='choose name_mode')
+    parser.add_argument('--model', default='', choices=['', 'vgg11'])
+    parser.add_argument('--name', default='Simple', choices=['Full', 'Simple'], help='choose name_name')
     parser.add_argument('--gpu', default=1, type=int, help='input gpu num')
     parser.add_argument('-c', '--classify_mode', default='leaf', choices=['leaf', 'subtype', 'new_tree'], help='leaf->based on tree, simple->based on subtype')
-    parser.add_argument('-l', '--loss_mode', default='normal', choices=['normal','invarse','myinvarse','LDAM'], help='select loss type')
+    parser.add_argument('-l', '--loss_mode', default='normal', choices=['normal','invarse','myinvarse','LDAM','focal'], help='select loss type')
     parser.add_argument('-C', '--constant', default=None)
+    parser.add_argument('-g', '--gamma', default=None)
     parser.add_argument('-a', '--augmentation', action='store_true')
     parser.add_argument('--fc', action='store_true')
+    parser.add_argument('--reduce', action='store_true')
     args = parser.parse_args()
+
+    if args.data == 'add':
+        args.data = 'add_'
+        args.reduce = True
 
     if args.classify_mode != 'subtype':
         if args.depth == None:
@@ -201,6 +183,9 @@ if __name__ == '__main__':
     if args.loss_mode == 'LDAM' and args.constant == None:
         print(f'when loss_mode is LDAM, input Constant param')
         exit()
+    
+    if args.loss_mode == 'focal' and args.gamma == None:
+        print(f'when loss_mode is focal, input gamma param')
+        exit()
 
-    test_model(args.gpu, args.train, args.test, args.name, args.depth, args.leaf,
-            args.mag, args.classify_mode, args.loss_mode, args.constant, args.augmentation, args.fc)
+    test_model(args)

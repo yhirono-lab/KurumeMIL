@@ -18,20 +18,60 @@ import torch.nn.functional as F
 import torchvision.models as models
 
 
-DATA_PATH = '/Dataset/Kurume_Dataset' # データディレクトリ
-SVS_PATH = '/Raw/Kurume_Dataset'
-slideID = '180183'
-pos_list = np.loadtxt(f'{DATA_PATH}/svs_info/{slideID}/{slideID}.csv', delimiter=',', dtype='int')
-np.random.shuffle(pos_list)
-pos = pos_list[0,:].tolist()
+x = torch.tensor([[0.222,0.978],[0.3335,0.886]])
+target = torch.tensor([0,1])
+index = F.one_hot(target, 2).type(torch.uint8)
 
-b_size = 224
-svs_list = os.listdir(f'{SVS_PATH}/svs')
-svs_fn = [s for s in svs_list if slideID in s]
-svs = openslide.OpenSlide(f'{SVS_PATH}/svs/{svs_fn[0]}')
-img = svs.read_region((pos[0],pos[1]),0,(b_size,b_size)).convert('RGB')
-print(img)
-img.save(f'./patch_{pos[0]}_{pos[1]}.png')
+loss_fn = nn.CrossEntropyLoss()
+x_soft = F.softmax(x, dim=1)
+loss = -1. * index * torch.log(x_soft)
+print(x_soft)
+
+soft1 = torch.exp(x[0,0])/(torch.exp(x[0,0])+torch.exp(x[0,1]))
+soft2 = torch.exp(x[1,1])/(torch.exp(x[1,0])+torch.exp(x[1,1]))
+print(soft1,soft2)
+
+loss1 = loss_fn(x, target)
+loss2 = -x[0,target[0]]+torch.log(torch.exp(x[0,0])+torch.exp(x[0,1]))
+loss3 = -x[1,target[1]]+torch.log(torch.exp(x[1,0])+torch.exp(x[1,1]))
+loss4 = -torch.log(soft1)
+loss5 = -torch.log(soft2)
+print(loss1,loss2,loss3,(loss2+loss3)/2,loss4,loss5,(loss4+loss5)/2)
+print(loss.sum(),loss.sum()/2)
+
+
+# a = np.array([[1,2,3],[4,5,6]])
+# b = np.array([[10,20,30],[40,50,60]])
+# c = np.array([[100,200,300],[400,500,600]])
+# A = [a,b,c]
+# # A = np.array(A)
+# A = np.stack([a,b,c])
+# print(A)
+
+# vgg = models.vgg16(pretrained=True)
+# print(vgg)
+# print(nn.Sequential(*list(vgg.children())[:-1]))
+
+# x = torch.arange(196).view(1,14,14).float()
+# y = nn.AdaptiveAvgPool2d((7,7))(x)
+# print(x)
+# print(y)
+
+# DATA_PATH = '/Dataset/Kurume_Dataset' # データディレクトリ
+# SVS_PATH = '/Raw/Kurume_Dataset'
+# slideID = '180183'
+# pos_list = np.loadtxt(f'{DATA_PATH}/svs_info/{slideID}/{slideID}.csv', delimiter=',', dtype='int')
+# np.random.shuffle(pos_list)
+# pos = pos_list[0,:].tolist()
+
+# b_size = 224
+# svs_list = os.listdir(f'{SVS_PATH}/svs')
+# svs_fn = [s for s in svs_list if slideID in s[:11]]
+# svs = openslide.OpenSlide(f'{SVS_PATH}/svs/{svs_fn[0]}')
+# img = svs.read_region((pos[0],pos[1]),0,(b_size,b_size)).convert('RGB')
+# print(img)
+# img.save(f'./patch_{pos[0]}_{pos[1]}.png')
+
 # device = 'cuda:0'
 # class_num_list = np.array([10,90])
 # weights = torch.tensor([1/(10/100),1/(90/100)]).to(device)
@@ -109,7 +149,7 @@ img.save(f'./patch_{pos[0]}_{pos[1]}.png')
 #         continue
 #     print(f'svs:{svs} {idx}/{len(svs_info_list)}')
 
-#     svs_fn = [s for s in svs_list if svs in s]
+#     svs_fn = [s for s in svs_list if svs in s[:11]]
 #     pos_list = np.loadtxt(f'{DATA_PATH}/svs_info/{svs}/{svs}.csv', delimiter=',', dtype='int')
  
 #     img = openslide.OpenSlide(f'{SVS_PATH}/svs/{svs_fn[0]}')

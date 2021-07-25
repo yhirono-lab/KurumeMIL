@@ -18,6 +18,8 @@ import sys
 import argparse
 from tqdm import tqdm
 
+import utils
+
 def setup(rank, world_size):
     os.environ['MASTER_ADDR'] = 'localhost'
     os.environ['MASTER_PORT'] = '12355' #適当な数字で設定すればいいらしいがよくわかっていない
@@ -34,14 +36,6 @@ def eval_ans(y_hat, label):
     if(y_hat != true_label):
         ans = 0
     return ans
-
-def makedir(path):
-    if not os.path.exists(path):
-        try:
-            os.makedirs(path)
-        except:
-            return
-
 
 def train(model, rank, loss_fn, optimizer, train_loader):
     model.train() #訓練モードに変更
@@ -111,59 +105,36 @@ SAVE_PATH = '.'
 #マルチプロセス (GPU) で実行される関数
 #rank : mp.spawnで呼び出すと勝手に追加される引数で, GPUが割り当てられている
 #world_size : mp.spawnの引数num_gpuに相当
-def train_model(rank, world_size, train_slide, valid_slide, name_mode, depth, leaf, mag, classify_mode, loss_mode, constant, augmentation, restart, fc_flag):
+def train_model(rank, world_size, args):
     setup(rank, world_size)
 
     ##################実験設定#######################################
     EPOCHS = 20
     #device = 'cuda'
     ################################################################
-    if classify_mode == 'subtype':
-        dir_name = f'subtype_classify'
-        if fc_flag:
-            dir_name = f'fc_{dir_name}'
-    elif leaf is not None:
-        dir_name = classify_mode
-        if loss_mode != 'normal':
-            dir_name = f'{dir_name}_{loss_mode}'
-        if loss_mode == 'LDAM':
-            dir_name = f'{dir_name}-{constant}'
-        if augmentation:
-            dir_name = f'{dir_name}_aug'
-        if fc_flag:
-            dir_name = f'fc_{dir_name}'
-        dir_name = f'{dir_name}/depth-{depth}_leaf-{leaf}'
-    else:
-        dir_name = classify_mode
-        if loss_mode != 'normal':
-            dir_name = f'{dir_name}_{loss_mode}'
-        if loss_mode == 'LDAM':
-            dir_name = f'{dir_name}-{constant}'
-        if augmentation:
-            dir_name = f'{dir_name}_aug'
-        if fc_flag:
-            dir_name = f'fc_{dir_name}'
-        dir_name = f'{dir_name}/depth-{depth}_leaf-all'
-    
+    dir_name = utils.make_dirname(args)
+    if rank == 0:
+        print(dir_name)
+
     # # 訓練用と検証用に症例を分割
     import dataset_kurume as ds
-    if classify_mode == 'leaf' or classify_mode == 'new_tree':
-        train_dataset, valid_dataset, label_num = ds.load_leaf(train_slide, valid_slide, name_mode, depth, leaf, classify_mode, augmentation)
-    elif classify_mode == 'subtype':
-        train_dataset, valid_dataset, label_num = ds.load_svs(train_slide, valid_slide, name_mode)
+    if args.classify_mode == 'leaf' or args.classify_mode == 'new_tree':
+        train_dataset, valid_dataset, label_num = ds.load_leaf(args)
+    elif args.classify_mode == 'subtype':
+        train_dataset, valid_dataset, label_num = ds.load_svs(args)
 
     label_count = np.zeros(label_num)
     for i in range(label_num):
         label_count[i] = len([d for d in train_dataset if d[1] == i])
     if rank == 0:
-        print(f'train split:{train_slide} train slide count:{len(train_dataset)}')
-        print(f'valid split:{valid_slide}   valid slide count:{len(valid_dataset)}')
+        print(f'train split:{args.train} train slide count:{len(train_dataset)}')
+        print(f'valid split:{args.valid}   valid slide count:{len(valid_dataset)}')
         print(f'train label count:{label_count}')
-    
-    makedir(f'{SAVE_PATH}/train_log/{dir_name}')
-    log = f'{SAVE_PATH}/train_log/{dir_name}/log_{mag}_train-{train_slide}.csv'
+   
+    utils.makedir(f'{SAVE_PATH}/train_log/{dir_name}')
+    log = f'{SAVE_PATH}/train_log/{dir_name}/log_{args.mag}_train-{args.train}.csv'
 
-    if rank == 0 and not restart:
+    if rank == 0 and not args.restart:
         #ログヘッダー書き込み
         f = open(log, 'w')
         f_writer = csv.writer(f, lineterminator='\n')
@@ -174,16 +145,16 @@ def train_model(rank, world_size, train_slide, valid_slide, name_mode, depth, le
     torch.backends.cudnn.benchmark=True #cudnnベンチマークモード
 
     # model読み込み
-    from model import feature_extractor, class_predictor, MIL, set_LossFunction, CEInvarse, LDAMLoss
+    from model import feature_extractor, class_predictor, MIL, CEInvarse, LDAMLoss, FocalLoss
     # 各ブロック宣言
-    feature_extractor = feature_extractor()
+    feature_extractor = feature_extractor(args.model)
     class_predictor = class_predictor(label_num)
     # model構築
     model = MIL(feature_extractor, class_predictor)
 
     # 途中で学習が止まってしまったとき用
-    if restart:
-        model_params_dir = f'{SAVE_PATH}/model_params/{dir_name}/{mag}_train-{train_slide}'
+    if args.restart:
+        model_params_dir = f'{SAVE_PATH}/model_params/{dir_name}/{args.mag}_train-{args.train}'
         if os.path.exists(model_params_dir):
             model_params_list = sorted(os.listdir(model_params_dir))
             model_params_file = f'{model_params_dir}/{model_params_list[-1]}'
@@ -195,7 +166,7 @@ def train_model(rank, world_size, train_slide, valid_slide, name_mode, depth, le
     if rank == 0:
         print(model)
     
-    if fc_flag:
+    if args.fc:
         for param in model.feature_extractor.parameters():
             param.requires_grad = False
 
@@ -207,12 +178,14 @@ def train_model(rank, world_size, train_slide, valid_slide, name_mode, depth, le
     ddp_model = DDP(model, device_ids=[rank])
 
     # クロスエントロピー損失関数使用
-    if loss_mode == 'normal':
+    if args.loss_mode == 'normal':
         loss_fn = nn.CrossEntropyLoss().to(rank)
-    if loss_mode == 'myinvarse':
+    if args.loss_mode == 'myinvarse':
         loss_fn = CEInvarse(rank, label_count).to(rank)
-    if loss_mode == 'LDAM':
-        loss_fn = LDAMLoss(rank, label_count, Constant=float(constant)).to(rank)
+    if args.loss_mode == 'LDAM':
+        loss_fn = LDAMLoss(rank, label_count, Constant=float(args.constant)).to(rank)
+    if args.loss_mode == 'focal':
+        loss_fn = FocalLoss(rank, label_count, gamma=float(args.gamma)).to(rank)
     lr = 0.001
     
      # 前処理
@@ -234,7 +207,7 @@ def train_model(rank, world_size, train_slide, valid_slide, name_mode, depth, le
         valid_loss = 0.0
         valid_acc = 0.0
 
-        if restart and epoch<restart_epoch:
+        if args.restart and epoch<restart_epoch:
             if rank == 0:
                 print('this epoch already trained')
             continue
@@ -244,7 +217,7 @@ def train_model(rank, world_size, train_slide, valid_slide, name_mode, depth, le
             transform=transform,
             dataset=train_dataset,
             class_count=label_num,
-            mag=mag,
+            mag=args.mag,
             bag_num=50,
             bag_size=100
         )
@@ -274,7 +247,7 @@ def train_model(rank, world_size, train_slide, valid_slide, name_mode, depth, le
             transform=transform,
             dataset=valid_dataset,
             class_count=label_num,
-            mag=mag,
+            mag=args.mag,
             bag_num=50,
             bag_size=100
         )
@@ -313,8 +286,8 @@ def train_model(rank, world_size, train_slide, valid_slide, name_mode, depth, le
 
         # epochごとにmodelのparams保存
         if rank == 0:
-            makedir(f'{SAVE_PATH}/model_params/{dir_name}/{mag}_train-{train_slide}')
-            model_params_dir = f'{SAVE_PATH}/model_params/{dir_name}/{mag}_train-{train_slide}/{mag}_train-{train_slide}_epoch-{epoch}.pth'
+            utils.makedir(f'{SAVE_PATH}/model_params/{dir_name}/{args.mag}_train-{args.train}')
+            model_params_dir = f'{SAVE_PATH}/model_params/{dir_name}/{args.mag}_train-{args.train}/{args.mag}_train-{args.train}_epoch-{epoch}.pth'
             torch.save(ddp_model.module.state_dict(), model_params_dir)
 
 if __name__ == '__main__':
@@ -324,18 +297,26 @@ if __name__ == '__main__':
     parser.add_argument('valid', help='choose valid data split')
     parser.add_argument('--depth', default=None, help='choose depth')
     parser.add_argument('--leaf', default=None, help='choose leafs')
+    parser.add_argument('--data', default='', choices=['', 'add'])
     parser.add_argument('--mag', default='40x', choices=['5x', '10x', '20x', '40x'], help='choose mag')
+    parser.add_argument('--model', default='', choices=['', 'vgg11'])
     parser.add_argument('--name', default='Simple', choices=['Full', 'Simple'], help='choose name_mode')
     parser.add_argument('--num_gpu', default=1, type=int, help='input gpu num')
     parser.add_argument('-c', '--classify_mode', default='new_tree', choices=['leaf', 'subtype', 'new_tree'], help='leaf->based on tree, simple->based on subtype')
-    parser.add_argument('-l', '--loss_mode', default='normal', choices=['normal','myinvarse','LDAM'], help='select loss type')
+    parser.add_argument('-l', '--loss_mode', default='normal', choices=['normal','myinvarse','LDAM','focal'], help='select loss type')
     parser.add_argument('-C', '--constant', default=None)
+    parser.add_argument('-g', '--gamma', default=None)
     parser.add_argument('-a', '--augmentation', action='store_true')
     parser.add_argument('-r', '--restart', action='store_true')
     parser.add_argument('--fc', action='store_true')
+    parser.add_argument('--reduce', action='store_true')
     args = parser.parse_args()
 
     num_gpu = args.num_gpu #argでGPUを入力
+    
+    if args.data == 'add':
+        args.data = 'add_'
+        args.reduce = True
 
     if args.classify_mode != 'subtype':
         if args.depth == None:
@@ -345,15 +326,13 @@ if __name__ == '__main__':
     if args.loss_mode == 'LDAM' and args.constant == None:
         print(f'when loss_mode is LDAM, input Constant param')
         exit()
+    
+    if args.loss_mode == 'focal' and args.gamma == None:
+        print(f'when loss_mode is focal, input gamma param')
+        exit()
 
     #マルチプロセスで実行するために呼び出す
     #train_model : マルチプロセスで実行する関数
     #args : train_modelの引数
     #nprocs : プロセス (GPU) の数
-    mp.spawn(train_model, 
-        args=(
-            args.num_gpu, args.train, args.valid, args.name, args.depth, args.leaf,
-            args.mag, args.classify_mode, args.loss_mode, args.constant, args.augmentation, args.restart, args.fc
-        ),
-        nprocs=num_gpu, join=True
-    )
+    mp.spawn(train_model, args=(num_gpu, args), nprocs=num_gpu, join=True)

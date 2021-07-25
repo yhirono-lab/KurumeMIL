@@ -66,7 +66,7 @@ class Dataset_svs(torch.utils.data.Dataset):
 
         # 症例IDを含む名前のsvsファイルを取得
         svs_list = os.listdir(f'{SVS_PATH}/svs')
-        svs_fn = [s for s in svs_list if self.bag_list[idx][1] in s]
+        svs_fn = [s for s in svs_list if self.bag_list[idx][1] in s[:11]]
         svs = openslide.OpenSlide(f'{SVS_PATH}/svs/{svs_fn[0]}')
 
         aug = self.bag_list[idx][3]

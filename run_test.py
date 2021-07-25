@@ -10,14 +10,11 @@ command_list = [
     ['-c','new_tree','-l','LDAM','-C','0.1'],
     ['-c','new_tree','-l','LDAM','-C','0.3'],
     ['-c','new_tree','-l','LDAM','-C','0.5'],
-    ['-c','new_tree','-l','myinvarse','-a'],
-    ['-c','new_tree','-l','LDAM','-C','0.1','-a'],
-    ['-c','new_tree','-l','LDAM','-C','0.3','-a'],
-    ['-c','new_tree','-l','LDAM','-C','0.5','-a'],
     ['-c','new_tree','-l','LDAM','-C','0.2'],
-    ['-c','new_tree','-l','LDAM','-C','0.2','-a'],
-    ['-c','new_tree','-l','LDAM','-C','0.125'],
-    ['-c','new_tree','-l','LDAM','-C','0.175'],
+    ['-c','new_tree','-l','myinvarse','--fc'],
+    ['-c','new_tree','-l','LDAM','-C','0.1','--fc'],
+    ['-c','new_tree','-l','LDAM','-C','0.2','--fc'],
+    ['-c','new_tree','--fc'], 
 ]
 
 split_list = [
@@ -32,9 +29,9 @@ args = sys.argv
 if len(args)!=3:
     exit()
 
-mode_option = [[0,1,2,3],[4,5,6],[7,8,9],[10,11,12,13]]
+mode_option = [[0,1,2],[3,4,5],[6,7,8],[9,10,11,12]]
 mode_list = mode_option[int(args[1])]
-mode_list = range(len(command_list))
+# mode_list = range(len(command_list))
 gpu = int(args[1])
 
 for mode in mode_list:
@@ -49,5 +46,6 @@ for mode in mode_list:
     # subprocess.run(command)
 
     command = ['python','draw_heatmap.py','--depth','1','--leaf','01']+command_list[mode]
+    print(command)
     subprocess.run(command)
 
