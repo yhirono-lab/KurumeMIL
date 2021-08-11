@@ -1,7 +1,0 @@
-fc_new_tree_depth-1_leaf-01
-,pred:0,pred:1
-true:0,73,530
-true:1,379,6943
-recall,0.12106135986733002,0.9482381862878995
-total,7925
-accuracy,0.8852996845425868

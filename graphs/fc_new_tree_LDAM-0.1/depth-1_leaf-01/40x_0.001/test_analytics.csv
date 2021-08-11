@@ -1,0 +1,14 @@
+fc_new_tree_LDAM-0.1_depth-1_leaf-01
+Bag,pred:0,pred:1
+true:0,53,550
+true:1,232,7090
+recall,0.087893864013267,0.9683146681234636
+total,7925
+accuracy,0.9013249211356467
+
+Slide,pred:0,pred:1
+true:0,1,12
+true:1,3,151
+recall,0.07692307692307693,0.9805194805194806
+total,167
+accuracy,0.9101796407185628

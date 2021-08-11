@@ -18,7 +18,7 @@ def makedir(path):
         os.makedirs(path)
 
 def get_slideID_name():
-    file_name = '../add_data/Data_FullName_svs.csv'
+    file_name = '../KurumeTree/add_data/Data_FullName_svs.csv'
     csv_data = np.loadtxt(file_name, delimiter=',', dtype='str')
     name_list = {}
 
@@ -31,8 +31,11 @@ def get_slideID_name():
 
     return name_list
 
-def load_att_data(dir_name):
+# Slide単位でattentionを読み込む
+def load_att_data(dir_name, args):
     test_fn_list = os.listdir(f'{SAVE_PATH}/test_result/{dir_name}')
+    test_fn_list = [test_fn for test_fn in test_fn_list if args.mag in test_fn and str(args.lr) in test_fn and 'epoch' in test_fn]
+    print(test_fn_list)
     att_data_list = {}
     for test_fn in test_fn_list:
         csv_data = open(f'{SAVE_PATH}/test_result/{dir_name}/{test_fn}')
@@ -51,8 +54,11 @@ def load_att_data(dir_name):
     
     return att_data_list
 
-def load_bagatt_data(dir_name):
+# bag単位でattentionを読み込む
+def load_bagatt_data(dir_name, args):
     test_fn_list = os.listdir(f'{SAVE_PATH}/test_result/{dir_name}')
+    test_fn_list = [test_fn for test_fn in test_fn_list if args.mag in test_fn and str(args.lr) in test_fn and 'epoch' in test_fn]
+    print(test_fn_list)
     bagatt_data_list = {}
     print(test_fn_list)
     for test_fn in test_fn_list:
@@ -79,11 +85,12 @@ def load_bagatt_data(dir_name):
     return bagatt_data_list
 
 def draw_heatmap(args, dir_name):
+    print('make attention heat map')
     b_size = 224
     t_size = 4
-    att_data_list = load_att_data(dir_name)
+    att_data_list = load_att_data(dir_name, args)
 
-    save_dir = f'{SAVE_PATH}/attention_map/{dir_name}'
+    save_dir = f'{SAVE_PATH}/attention_map/{dir_name}/{args.mag}_{args.lr}'
     makedir(save_dir)
 
     bar = tqdm(total = len(att_data_list))
@@ -97,8 +104,8 @@ def draw_heatmap(args, dir_name):
         for i in range(len(att)):
             att[i] = (att[i] - att_min) / (att_max - att_min) #attentionを症例で正規化
         
-        img = cv2.imread(f'{DATA_PATH}/svs_info/{slideID}/{slideID}_thumb.tif')
-        thumb = cv2.imread(f'{DATA_PATH}/svs_info/{slideID}/{slideID}_thumb.tif')
+        img = cv2.imread(f'{DATA_PATH}/hirono/svs_info_40x/{slideID}/{slideID}_thumb.tif')
+        thumb = cv2.imread(f'{DATA_PATH}/hirono/svs_info_40x/{slideID}/{slideID}_thumb.tif')
 
         height, width = img.shape[0], img.shape[1]
         w_num = width // t_size
@@ -112,8 +119,23 @@ def draw_heatmap(args, dir_name):
 
             cval = cmap(float(att[i]))
             att_map[y,x,:] = [cval[2]*255, cval[1]*255, cval[0]*255]
-
-            cv2.rectangle(img, (int(pos_x[i]*4/224), int(pos_y[i]*4/224)), (int(((pos_x[i]/224)+1)*4), int(((pos_y[i]/224)+1)*4)), (cval[2] * 255, cval[1] * 255, cval[0] * 255), thickness=-1)
+            color = (cval[2] * 255, cval[1] * 255, cval[0] * 255)
+            if args.mag == '40x':
+                start = (int(pos_x[i]/b_size*t_size), int(pos_y[i]/b_size*t_size))
+                end = (int(pos_x[i]/b_size*t_size+t_size), int(pos_y[i]/b_size*t_size+t_size))
+                cv2.rectangle(img, start, end, color, thickness=-1)
+            elif args.mag == '20x':
+                start = (int(pos_x[i]/b_size*t_size-t_size/2), int(pos_y[i]/b_size*t_size-t_size/2))
+                end = (int(pos_x[i]/b_size*t_size+t_size*3/2), int(pos_y[i]/b_size*t_size+t_size*3/2))
+                cv2.rectangle(img, start, end, color, thickness=-1)
+            elif args.mag == '10x':
+                start = (int(pos_x[i]/b_size*t_size-t_size*3/2), int(pos_y[i]/b_size*t_size-t_size*3/2))
+                end = (int(pos_x[i]/b_size*t_size+t_size*5/2), int(pos_y[i]/b_size*t_size+t_size*5/2))
+                cv2.rectangle(img, start, end, color, thickness=-1)
+            elif args.mag == '5x':
+                start = (int(pos_x[i]/b_size*t_size-t_size*7/2), int(pos_y[i]/b_size*t_size-t_size*7/2))
+                end = (int(pos_x[i]/b_size*t_size+t_size*9/2), int(pos_y[i]/b_size*t_size+t_size*9/2))
+                cv2.rectangle(img, start, end, color, thickness=-1)
 
         att_map = cv2.resize(np.uint8(att_map), (width, height))
         cv2.imwrite(f'{save_dir}/{slideID}_map.tif', att_map)
@@ -121,12 +143,14 @@ def draw_heatmap(args, dir_name):
         cv2.imwrite(f'{save_dir}/{slideID}_thumb.tif', thumb)
     
 def save_high_low_patches(args, dir_name):
-    bagatt_data_list = load_bagatt_data(dir_name)
+    print('make high&low patch tiles')
+    bagatt_data_list = load_bagatt_data(dir_name, args)
 
-    save_dir = f'{SAVE_PATH}/attention_patch/{dir_name}'
+    save_dir = f'{SAVE_PATH}/attention_patch/{dir_name}/{args.mag}_{args.lr}'
     makedir(save_dir)
 
     bar = tqdm(total = len(bagatt_data_list))
+    print(bagatt_data_list.keys())
     for slideID in bagatt_data_list:
         bar.update(1)
         
@@ -147,80 +171,131 @@ def save_high_low_patches(args, dir_name):
         false_data[1] = [int(y) for y in false_data[1]]
         false_data[2] = [(float(a)-att_min)/(att_max-att_min) for a in false_data[2]]
 
-        save_patch(slideID, label, true_data, save_dir, 'correct')
-        save_patch(slideID, label, false_data, save_dir, 'incorrect') 
+        save_patch(slideID, args.mag, label, true_data, save_dir, 'correct')
+        save_patch(slideID, args.mag, label, false_data, save_dir, 'incorrect') 
         
-def save_patch(slideID, label, data, save_dir, flag):
+def save_patch(slideID, mag, label, data, save_dir, flag):
     if len(data[2]) > 0:
         b_size = 224
         svs_fn = [s for s in svs_fn_list if slideID in s[:11]]
         svs = openslide.OpenSlide(f'/Raw/Kurume_Dataset/svs/{svs_fn[0]}')
 
         sort_idx = np.argsort(data[2])[::-1]
-        save_many_patch(slideID, svs, sort_idx, label, data, save_dir, flag)
+        save_many_patch(slideID, mag, svs, sort_idx, label, data, save_dir, flag)
 
-        fig, ax = plt.subplots(3, 3)
-        for i in range(9):
-            idx = sort_idx[i]
-            pos_x = data[0][idx]
-            pos_y = data[1][idx]
-            att = data[2][idx]
-
-            b_img = svs.read_region((pos_x, pos_y), 0, (b_size,b_size)).convert('RGB')
-            # b_img.save(f'{save_dir}/save.png')
-            # exit()
-            b_img = np.array(b_img)
-
-            plt.subplot(3,3,i+1)
-            plt.title('{:.4f}'.format(att), fontsize=10)
-            plt.tick_params(color='white')
-            plt.tick_params(labelbottom=False, labelleft=False, labelright=False, labeltop=False)
-            plt.imshow(b_img)
-        
-        # plt.tight_layout()
-        plt.subplots_adjust(wspace=0, hspace=0.25)
         img_name = f'{slideID}_{label}_{flag}_{slideID_name_dict[slideID]}_high'
-        fig.suptitle(f'{img_name}')
-        makedir(f'{save_dir}/{label}_{flag}')
-        plt.savefig(f'{save_dir}/{label}_{flag}/{img_name}.tif', bbox_inches='tight', pad_inches=0.1, format='tif', dpi=300)
-
+        save_patch_tile(svs, mag, data, sort_idx, f'{save_dir}/{label}_{flag}', img_name)
 
         sort_idx = np.argsort(data[2])
-        for i in range(9):
-            idx = sort_idx[i]
-            pos_x = data[0][idx]
-            pos_y = data[1][idx]
-            att = data[2][idx]
-
-            b_img = svs.read_region((pos_x, pos_y), 0, (b_size,b_size)).convert('RGB')
-            b_img = np.array(b_img)
-
-            plt.subplot(3,3,i+1)
-            plt.title('{:.4f}'.format(att), fontsize=10)
-            plt.tick_params(color='white')
-            plt.tick_params(labelbottom=False, labelleft=False, labelright=False, labeltop=False)
-            plt.imshow(b_img)
-        
-        # plt.tight_layout()
-        plt.subplots_adjust(wspace=0, hspace=0.25)
         img_name = f'{slideID}_{label}_{flag}_{slideID_name_dict[slideID]}_low'
-        fig.suptitle(f'{img_name}')
-        makedir(f'{save_dir}/{label}_{flag}')
-        plt.savefig(f'{save_dir}/{label}_{flag}/{img_name}.tif', bbox_inches='tight', pad_inches=0.1, format='tif', dpi=300)
+        save_patch_tile(svs, mag, data, sort_idx, f'{save_dir}/{label}_{flag}', img_name)
+        # fig, ax = plt.subplots(3, 3)
+        # for i in range(9):
+        #     idx = sort_idx[i]
+        #     pos_x = data[0][idx]
+        #     pos_y = data[1][idx]
+        #     att = data[2][idx]
+
+        #     b_img = svs.read_region((pos_x, pos_y), 0, (b_size,b_size)).convert('RGB')
+        #     # b_img.save(f'{save_dir}/save.png')
+        #     # exit()
+        #     b_img = np.array(b_img)
+
+        #     plt.subplot(3,3,i+1)
+        #     plt.title('{:.4f}'.format(att), fontsize=10)
+        #     plt.tick_params(color='white')
+        #     plt.tick_params(labelbottom=False, labelleft=False, labelright=False, labeltop=False)
+        #     plt.imshow(b_img)
+        
+        # # plt.tight_layout()
+        # plt.subplots_adjust(wspace=0, hspace=0.25)
+        # img_name = f'{slideID}_{label}_{flag}_{slideID_name_dict[slideID]}_high'
+        # fig.suptitle(f'{img_name}')
+        # makedir(f'{save_dir}/{label}_{flag}')
+        # plt.savefig(f'{save_dir}/{label}_{flag}/{img_name}.tif', bbox_inches='tight', pad_inches=0.1, format='tif', dpi=300)
+        # plt.clf()
 
 
-def save_many_patch(slideID, svs, sort_idx, label, data, save_dir, flag):
+        # sort_idx = np.argsort(data[2])
+        # for i in range(9):
+        #     idx = sort_idx[i]
+        #     pos_x = data[0][idx]
+        #     pos_y = data[1][idx]
+        #     att = data[2][idx]
+
+        #     b_img = svs.read_region((pos_x, pos_y), 0, (b_size,b_size)).convert('RGB')
+        #     b_img = np.array(b_img)
+
+        #     plt.subplot(3,3,i+1)
+        #     plt.title('{:.4f}'.format(att), fontsize=10)
+        #     plt.tick_params(color='white')
+        #     plt.tick_params(labelbottom=False, labelleft=False, labelright=False, labeltop=False)
+        #     plt.imshow(b_img)
+        
+        # # plt.tight_layout()
+        # plt.subplots_adjust(wspace=0, hspace=0.25)
+        # img_name = f'{slideID}_{label}_{flag}_{slideID_name_dict[slideID]}_low'
+        # fig.suptitle(f'{img_name}')
+        # makedir(f'{save_dir}/{label}_{flag}')
+        # plt.savefig(f'{save_dir}/{label}_{flag}/{img_name}.tif', bbox_inches='tight', pad_inches=0.1, format='tif', dpi=300)
+        # plt.clf()
+
+
+def save_patch_tile(svs, mag, data, sort_idx, save_dir, img_name):
+    b_size = 224
+    fig, ax = plt.subplots(3, 3)
+    for i in range(9):
+        idx = sort_idx[i]
+        pos = [data[0][idx], data[1][idx]]
+        # pos_x = data[0][idx]
+        # pos_y = data[1][idx]
+        att = data[2][idx]
+
+        if mag == '40x':
+            b_img = svs.read_region((pos[0],pos[1]),0,(b_size,b_size)).convert('RGB')
+        elif mag == '20x':
+            b_img = svs.read_region((pos[0]-(int(b_size/2)),pos[1]-(int(b_size/2))),0,(b_size*2,b_size*2)).convert('RGB')
+        elif mag == '10x':
+            b_img = svs.read_region((pos[0]-(int(b_size*3/2)),pos[1]-(int(b_size*3/2))),1,(b_size,b_size)).convert('RGB')
+        elif mag == '5x':
+            b_img = svs.read_region((pos[0]-(int(b_size*7/2)),pos[1]-(int(b_size*7/2))),1,(b_size*2,b_size*2)).convert('RGB')
+        # b_img = svs.read_region((pos[0], pos[1]), 0, (b_size,b_size)).convert('RGB')
+        b_img = np.array(b_img)
+
+        plt.subplot(3,3,i+1)
+        plt.title('{:.4f}'.format(att), fontsize=10)
+        plt.tick_params(color='white')
+        plt.tick_params(labelbottom=False, labelleft=False, labelright=False, labeltop=False)
+        plt.imshow(b_img)
+    
+    # plt.tight_layout()
+    plt.subplots_adjust(wspace=0, hspace=0.25)
+    fig.suptitle(f'{img_name}')
+    plt.savefig(f'{save_dir}/{img_name}.tif', bbox_inches='tight', pad_inches=0.1, format='tif', dpi=300)
+    plt.clf()
+
+
+def save_many_patch(slideID, mag, svs, sort_idx, label, data, save_dir, flag):
     b_size = 224
     img_num = 50
     images = np.zeros((img_num, b_size, b_size, 3), np.uint8)
     fig, ax = plt.subplots()
     for i in range(img_num):
         idx = sort_idx[i]
-        pos_x = data[0][idx]
-        pos_y = data[1][idx]
+        pos = [data[0][idx], data[1][idx]]
+        # pos_x = data[0][idx]
+        # pos_y = data[1][idx]
         att = data[2][idx]
 
-        b_img = svs.read_region((pos_x, pos_y), 0, (b_size,b_size)).convert('RGB')
+        if mag == '40x':
+            b_img = svs.read_region((pos[0],pos[1]),0,(b_size,b_size)).convert('RGB')
+        elif mag == '20x':
+            b_img = svs.read_region((pos[0]-(int(b_size/2)),pos[1]-(int(b_size/2))),0,(b_size*2,b_size*2)).convert('RGB')
+        elif mag == '10x':
+            b_img = svs.read_region((pos[0]-(int(b_size*3/2)),pos[1]-(int(b_size*3/2))),1,(b_size,b_size)).convert('RGB')
+        elif mag == '5x':
+            b_img = svs.read_region((pos[0]-(int(b_size*7/2)),pos[1]-(int(b_size*7/2))),1,(b_size*2,b_size*2)).convert('RGB')
+        b_img = svs.read_region((pos[0], pos[1]), 0, (b_size,b_size)).convert('RGB')
         images[i] = b_img
     
     images = np.transpose(images, [0,3,1,2]) # NHWC -> NCHW に変換
@@ -235,6 +310,7 @@ def save_many_patch(slideID, svs, sort_idx, label, data, save_dir, flag):
     plt.imshow(jointed)
     makedir(f'{save_dir}/{label}_{flag}/many_patch/attention')
     plt.savefig(f'{save_dir}/{label}_{flag}/many_patch/{img_name}.tif', bbox_inches='tight', pad_inches=0.1, format='tif', dpi=600)
+    plt.clf()
 
     f = open(f'{save_dir}/{label}_{flag}/many_patch/attention/{img_name}.csv', 'w')
     for d in data:
@@ -260,6 +336,7 @@ if __name__ == '__main__':
     parser.add_argument('--gpu', default=1, type=int, help='input gpu num')
     parser.add_argument('-c', '--classify_mode', default='leaf', choices=['leaf', 'subtype', 'new_tree'], help='leaf->based on tree, simple->based on subtype')
     parser.add_argument('-l', '--loss_mode', default='normal', choices=['normal','myinvarse','LDAM','focal'], help='select loss type')
+    parser.add_argument('--lr', default=0.001, type=float)
     parser.add_argument('-C', '--constant', default=None)
     parser.add_argument('-g', '--gamma', default=None)
     parser.add_argument('-a', '--augmentation', action='store_true')

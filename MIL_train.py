@@ -132,7 +132,7 @@ def train_model(rank, world_size, args):
         print(f'train label count:{label_count}')
    
     utils.makedir(f'{SAVE_PATH}/train_log/{dir_name}')
-    log = f'{SAVE_PATH}/train_log/{dir_name}/log_{args.mag}_train-{args.train}.csv'
+    log = f'{SAVE_PATH}/train_log/{dir_name}/log_{args.mag}_{args.lr}_train-{args.train}.csv'
 
     if rank == 0 and not args.restart:
         #ログヘッダー書き込み
@@ -154,7 +154,7 @@ def train_model(rank, world_size, args):
 
     # 途中で学習が止まってしまったとき用
     if args.restart:
-        model_params_dir = f'{SAVE_PATH}/model_params/{dir_name}/{args.mag}_train-{args.train}'
+        model_params_dir = f'{SAVE_PATH}/model_params/{dir_name}/{args.mag}_{args.lr}_train-{args.train}'
         if os.path.exists(model_params_dir):
             model_params_list = sorted(os.listdir(model_params_dir))
             model_params_file = f'{model_params_dir}/{model_params_list[-1]}'
@@ -186,7 +186,7 @@ def train_model(rank, world_size, args):
         loss_fn = LDAMLoss(rank, label_count, Constant=float(args.constant)).to(rank)
     if args.loss_mode == 'focal':
         loss_fn = FocalLoss(rank, label_count, gamma=float(args.gamma)).to(rank)
-    lr = 0.001
+    lr = args.lr
     
      # 前処理
     transform = torchvision.transforms.Compose([
@@ -286,8 +286,8 @@ def train_model(rank, world_size, args):
 
         # epochごとにmodelのparams保存
         if rank == 0:
-            utils.makedir(f'{SAVE_PATH}/model_params/{dir_name}/{args.mag}_train-{args.train}')
-            model_params_dir = f'{SAVE_PATH}/model_params/{dir_name}/{args.mag}_train-{args.train}/{args.mag}_train-{args.train}_epoch-{epoch}.pth'
+            utils.makedir(f'{SAVE_PATH}/model_params/{dir_name}/{args.mag}_{args.lr}_train-{args.train}')
+            model_params_dir = f'{SAVE_PATH}/model_params/{dir_name}/{args.mag}_{args.lr}_train-{args.train}/{args.mag}_{args.lr}_train-{args.train}_epoch-{epoch}.pth'
             torch.save(ddp_model.module.state_dict(), model_params_dir)
 
 if __name__ == '__main__':
@@ -304,6 +304,7 @@ if __name__ == '__main__':
     parser.add_argument('--num_gpu', default=1, type=int, help='input gpu num')
     parser.add_argument('-c', '--classify_mode', default='new_tree', choices=['leaf', 'subtype', 'new_tree'], help='leaf->based on tree, simple->based on subtype')
     parser.add_argument('-l', '--loss_mode', default='normal', choices=['normal','myinvarse','LDAM','focal'], help='select loss type')
+    parser.add_argument('--lr', default=0.001, type=float)
     parser.add_argument('-C', '--constant', default=None)
     parser.add_argument('-g', '--gamma', default=None)
     parser.add_argument('-a', '--augmentation', action='store_true')
@@ -336,3 +337,5 @@ if __name__ == '__main__':
     #args : train_modelの引数
     #nprocs : プロセス (GPU) の数
     mp.spawn(train_model, args=(num_gpu, args), nprocs=num_gpu, join=True)
+
+    utils.send_email(body=str(args))

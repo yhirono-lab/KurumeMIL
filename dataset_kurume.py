@@ -21,23 +21,6 @@ def read_leafCSV(filepath, label):
     csv_data.close()
     return file_data
 
-def read_CSV(filepath):
-    csv_data = open(filepath)
-    reader = csv.reader(csv_data)
-    file_data = []
-    name_data = {'DLBCL':0, 'FL':1, 'Reactive':2, 'CHL':3}
-    for row in reader:
-        if os.path.exists(f'/Dataset/Kurume_Dataset/svs_info/{row[0]}'):
-            if row[1] in name_data:
-                file_data.append([row[0], name_data[row[1]]])
-            else:
-                file_data.append([row[0], 4])
-        else:
-            # print(f'SlideID-{row[0]}は存在しません')
-            continue
-    csv_data.close()
-    return file_data
-
 def reduce_data(data):
     flag_list = {}
     csv_data = open('../KurumeTree/add_data/add_flag_list.csv')
@@ -96,22 +79,41 @@ def load_leaf(args):
         return train_dataset, valid_dataset, 2
 
     else: 
-        leaf_list = os.listdir(dir_path)
-        leaf_count = len(leaf_list)
+        print('Please input leaf number')
+        exit()
+    #     leaf_list = os.listdir(dir_path)
+    #     leaf_count = len(leaf_list)
         
-        train_dataset = []
-        valid_dataset = []
-        for num in range(leaf_count):
-            leaf_data = read_leafCSV(f'{dir_path}/leaf_{num}.csv', num)
-            for idx, slide in enumerate(leaf_data):
-                if str((idx%5)+1) in args.train:
-                    train_dataset.append(slide)
+    #     train_dataset = []
+    #     valid_dataset = []
+    #     for num in range(leaf_count):
+    #         leaf_data = read_leafCSV(f'{dir_path}/leaf_{num}.csv', num)
+    #         for idx, slide in enumerate(leaf_data):
+    #             if str((idx%5)+1) in args.train:
+    #                 train_dataset.append(slide)
                 
-                if str((idx%5)+1) in args.valid:
-                    valid_dataset.append(slide)
+    #             if str((idx%5)+1) in args.valid:
+    #                 valid_dataset.append(slide)
         
-        return train_dataset, valid_dataset, leaf_count
+    #     return train_dataset, valid_dataset, leaf_count
 
+
+def read_CSV(filepath):
+    csv_data = open(filepath)
+    reader = csv.reader(csv_data)
+    file_data = []
+    name_data = {'DLBCL':0, 'FL':1, 'Reactive':2, 'CHL':3}
+    for row in reader:
+        if os.path.exists(f'/Dataset/Kurume_Dataset/svs_info/{row[0]}'):
+            if row[1] in name_data:
+                file_data.append([row[0], name_data[row[1]]])
+            else:
+                file_data.append([row[0], 4])
+        else:
+            # print(f'SlideID-{row[0]}は存在しません')
+            continue
+    csv_data.close()
+    return file_data
     
 def load_svs(args):
     file_name = f'./{args.data}data/Data_{args.name}Name.csv'

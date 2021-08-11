@@ -17,27 +17,53 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torchvision.models as models
 
+""" mail送信の確認 """
+import smtplib
+from email.mime.text import MIMEText
+from email.utils import formatdate
+MAIL_ADDRESS = 'nitech28114106@gmail.com'
+PASSWORD = 'yrxqmyxhkglnpfsq'
 
-x = torch.tensor([[0.222,0.978],[0.3335,0.886]])
-target = torch.tensor([0,1])
-index = F.one_hot(target, 2).type(torch.uint8)
+smtpobj = smtplib.SMTP('smtp.gmail.com', 587)
+smtpobj.ehlo()
+smtpobj.starttls()
+smtpobj.ehlo()
+smtpobj.login(MAIL_ADDRESS, PASSWORD)
 
-loss_fn = nn.CrossEntropyLoss()
-x_soft = F.softmax(x, dim=1)
-loss = -1. * index * torch.log(x_soft)
-print(x_soft)
+body_msg = 'test message'
+subject = 'test title'
+from_addr = 'ckv14106@nitech.jp'
+to_addr = 'yyph.fam@gmail.com'
+msg = MIMEText(body_msg)
+msg['Subject'] = subject
+msg['From'] = from_addr
+msg['To'] = to_addr
+msg['Date'] = formatdate()
 
-soft1 = torch.exp(x[0,0])/(torch.exp(x[0,0])+torch.exp(x[0,1]))
-soft2 = torch.exp(x[1,1])/(torch.exp(x[1,0])+torch.exp(x[1,1]))
-print(soft1,soft2)
+smtpobj.sendmail(from_addr, to_addr, msg.as_string())
+smtpobj.close()
 
-loss1 = loss_fn(x, target)
-loss2 = -x[0,target[0]]+torch.log(torch.exp(x[0,0])+torch.exp(x[0,1]))
-loss3 = -x[1,target[1]]+torch.log(torch.exp(x[1,0])+torch.exp(x[1,1]))
-loss4 = -torch.log(soft1)
-loss5 = -torch.log(soft2)
-print(loss1,loss2,loss3,(loss2+loss3)/2,loss4,loss5,(loss4+loss5)/2)
-print(loss.sum(),loss.sum()/2)
+""" softmaxとcross entropyの計算の確認 """
+# x = torch.tensor([[0.222,0.978],[0.3335,0.886]])
+# target = torch.tensor([0,1])
+# index = F.one_hot(target, 2).type(torch.uint8)
+
+# loss_fn = nn.CrossEntropyLoss()
+# x_soft = F.softmax(x, dim=1)
+# loss = -1. * index * torch.log(x_soft)
+# print(x_soft)
+
+# soft1 = torch.exp(x[0,0])/(torch.exp(x[0,0])+torch.exp(x[0,1]))
+# soft2 = torch.exp(x[1,1])/(torch.exp(x[1,0])+torch.exp(x[1,1]))
+# print(soft1,soft2)
+
+# loss1 = loss_fn(x, target)
+# loss2 = -x[0,target[0]]+torch.log(torch.exp(x[0,0])+torch.exp(x[0,1]))
+# loss3 = -x[1,target[1]]+torch.log(torch.exp(x[1,0])+torch.exp(x[1,1]))
+# loss4 = -torch.log(soft1)
+# loss5 = -torch.log(soft2)
+# print(loss1,loss2,loss3,(loss2+loss3)/2,loss4,loss5,(loss4+loss5)/2)
+# print(loss.sum(),loss.sum()/2)
 
 
 # a = np.array([[1,2,3],[4,5,6]])

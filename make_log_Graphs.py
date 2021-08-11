@@ -11,9 +11,10 @@ from sklearn.base import MetaEstimatorMixin
 from sklearn.metrics import confusion_matrix, accuracy_score, precision_score, recall_score
 import utils
 
-def load_logfile(file_dir, mag):
+def load_logfile(file_dir, mag, lr):
     log_fn_list = os.listdir(f'{SAVE_PATH}/train_log/{file_dir}')
-    log_fn_list = [log_fn for log_fn in log_fn_list if mag in log_fn]
+    print(lr,type(lr))
+    log_fn_list = [log_fn for log_fn in log_fn_list if mag in log_fn and lr in log_fn]
     print(log_fn_list)
     log_list = []
     max_epoch = 0
@@ -28,9 +29,9 @@ def load_logfile(file_dir, mag):
             max_epoch=log.shape[0]
     return log_list, max_epoch
 
-def load_testresult(file_dir, mag):
+def load_testresult(file_dir, mag, lr):
     result_fn_list = os.listdir(f'{SAVE_PATH}/test_result/{file_dir}')
-    result_fn_list = [result_fn for result_fn in result_fn_list if mag in result_fn and 'epoch' in result_fn]
+    result_fn_list = [result_fn for result_fn in result_fn_list if mag in result_fn and lr in result_fn and 'epoch' in result_fn]
     print('load_testresult:',result_fn_list)
     result_data = []
     for result_fn in result_fn_list:
@@ -43,13 +44,13 @@ def load_testresult(file_dir, mag):
     return np.array(result_data)
 
 # スライド単位の事後確率とラベルのリストを返す
-def get_slide_prob_label(file_dir, mag):
+def get_slide_prob_label(file_dir, mag, lr):
     pred_corpus = {}
     label_corpus = {}
     slide_id_list = []
 
     result_fn_list = os.listdir(f'{SAVE_PATH}/test_result/{file_dir}')
-    result_fn_list = [result_fn for result_fn in result_fn_list if mag in result_fn and 'epoch' in result_fn]
+    result_fn_list = [result_fn for result_fn in result_fn_list if mag in result_fn and lr in result_fn and 'epoch' in result_fn]
     print('load_bagresult:',result_fn_list)
 
     for result_fn in result_fn_list:
@@ -106,7 +107,7 @@ def cal_log_ave(log_list, max_epoch):
         ave_log_data[epoch] += ave_data
     return ave_log_data
 
-def save_graph(data, max_epoch, save_dir, filename):
+def save_graph(args, data, max_epoch, save_dir, filename):
     plt.style.use('default')
     sns.set()
     sns.set_style('whitegrid')
@@ -136,9 +137,9 @@ def save_graph(data, max_epoch, save_dir, filename):
     plt.title(filename)
 
     utils.makedir(save_dir)
-    utils.makedir('./graphs/all')
+    utils.makedir(f'./graphs/all/{args.mag}_{args.lr}')
     plt.savefig(f'{save_dir}/acc_loss_graph.png')
-    plt.savefig(f'./graphs/all/{filename}_acc_loss_graph.png')
+    plt.savefig(f'./graphs/all/{args.mag}_{args.lr}/{filename}_acc_loss_graph.png')
 
     f = open(f'{save_dir}/average_log.csv', 'w')
     f_writer = csv.writer(f, lineterminator='\n')
@@ -147,7 +148,7 @@ def save_graph(data, max_epoch, save_dir, filename):
         f_writer.writerow([idx]+d.tolist())
     f.close()
 
-def save_test_cm(bag_label, slide_label, save_dir, filename):
+def save_test_cm(args, bag_label, slide_label, save_dir, filename):
     cm = confusion_matrix(y_true=bag_label[0], y_pred=bag_label[1], labels=np.unique(bag_label[0]).tolist())
     print('bag result\n',cm)
 
@@ -193,23 +194,23 @@ def save_test_cm(bag_label, slide_label, save_dir, filename):
     f_writer.writerow(['accuracy',acc])
     f.close()
 
-    shutil.copyfile(f'{save_dir}/test_analytics.csv', f'./graphs/all/{filename}_test_analytics.csv')
+    shutil.copyfile(f'{save_dir}/test_analytics.csv', f'./graphs/all/{args.mag}_{args.lr}/{filename}_test_analytics.csv')
 
 def make_log_Graphs(args): 
     dir_name = utils.make_dirname(args)
     filename = utils.make_filename(args)
     print(filename)
 
-    log_list, max_epoch = load_logfile(dir_name, args.mag)
+    log_list, max_epoch = load_logfile(dir_name, args.mag, str(args.lr))
     ave_log = cal_log_ave(log_list, max_epoch)
-    save_graph(ave_log, max_epoch, f'{SAVE_PATH}/graphs/{dir_name}', filename)
+    save_graph(args, ave_log, max_epoch, f'{SAVE_PATH}/graphs/{dir_name}/{args.mag}_{args.lr}', filename)
 
-    test_data = load_testresult(dir_name, args.mag)
-    _, _, true_label_list, pred_label_list = get_slide_prob_label(dir_name, args.mag)
+    test_data = load_testresult(dir_name, args.mag, str(args.lr))
+    _, _, true_label_list, pred_label_list = get_slide_prob_label(dir_name, args.mag, str(args.lr))
 
     bag_label = [test_data[:,0], test_data[:,1]]
     slide_label = [true_label_list, pred_label_list]
-    save_test_cm(bag_label, slide_label, f'{SAVE_PATH}/graphs/{dir_name}', filename)
+    save_test_cm(args, bag_label, slide_label, f'{SAVE_PATH}/graphs/{dir_name}/{args.mag}_{args.lr}', filename)
 
 SAVE_PATH = '.'
 
@@ -223,6 +224,7 @@ if __name__ == '__main__':
     parser.add_argument('--name', default='Simple', choices=['Full', 'Simple'], help='choose name_mode')
     parser.add_argument('-c', '--classify_mode', default='leaf', choices=['leaf', 'subtype', 'new_tree'], help='leaf->based on tree, simple->based on subtype')
     parser.add_argument('-l', '--loss_mode', default='normal', choices=['normal','invarse','myinvarse','LDAM','focal'], help='select loss type')
+    parser.add_argument('--lr', default=0.001, type=float)
     parser.add_argument('-C', '--constant', default=None)
     parser.add_argument('-g', '--gamma', default=None)
     parser.add_argument('-a', '--augmentation', action='store_true')

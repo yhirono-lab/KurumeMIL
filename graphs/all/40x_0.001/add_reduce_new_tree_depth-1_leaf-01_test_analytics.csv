@@ -1,0 +1,14 @@
+add_reduce_new_tree_depth-1_leaf-01
+Bag,pred:0,pred:1
+true:0,1514,1123
+true:1,804,6518
+recall,0.5741372772089496,0.8901939360830374
+total,9959
+accuracy,0.8065066773772467
+
+Slide,pred:0,pred:1
+true:0,33,23
+true:1,14,140
+recall,0.5892857142857143,0.9090909090909091
+total,210
+accuracy,0.8238095238095238

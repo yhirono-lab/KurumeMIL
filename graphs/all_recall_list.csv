@@ -1,12 +1,12 @@
 ,vgg16,,,vgg16_fc,,,vgg11,
-few,Hodgkin,other,,Hodgkin,other,,Hodgkin,other
+,Hodgkin,other,,Hodgkin,other,,Hodgkin,other
 Cross_Entropy,0.190,0.965,,0.121,0.948,,,
 CE-invarse,0.713,0.670,,0.496,0.763,,0.498,0.628
-LDAM-0.1,0.267,0.970,,0.088,0.968,,,
+LDAM-0.1,0.267,0.970,,0.088,0.968,,0.302,0.945
 LDAM-0.3,0.139,0.987,,0.124,0.959,,,
 LDAM-0.5,0.128,0.978,,0.121,0.958,,,
 ,,,,,,,,
-few_add,Hodgkin,other,,Hodgkin,other,,Hodgkin,other
+add,Hodgkin,other,,Hodgkin,other,,Hodgkin,other
 Cross_Entropy,,,,,,,,
 CE-invarse,0.650,0.762,,,,,0.677,0.801
 LDAM-0.1,0.561,0.852,,,,,0.328,0.926

@@ -11,10 +11,21 @@ import sys
 #     ['-c','new_tree','-l','LDAM','-C','0.5','--fc'],
 #     ['-c','new_tree','-l','LDAM','-C','0.2','--fc'],
 # ]
+# command_list = [
+#     ['-c','new_tree','-l','LDAM','-C','0.1','--model','vgg11'],
+#     ['-c','new_tree','-l','LDAM','-C','0.3','--model','vgg11'],
+#     ['-c','new_tree','-l','LDAM','-C','0.5','--model','vgg11'],
+# ]
 command_list = [
-    ['-c','new_tree','-l','LDAM','-C','0.1','--model','vgg11'],
-    ['-c','new_tree','-l','LDAM','-C','0.3','--model','vgg11'],
-    ['-c','new_tree','-l','LDAM','-C','0.5','--model','vgg11'],
+    # ['-c','new_tree','-l','normal','--model','vgg11'],
+    # ['-c','new_tree','-l','normal','--data','add'],
+    # ['-c','new_tree','-l','normal','--data','add','--model','vgg11'],
+    # ['-c','new_tree','-l','focal','-g','1.0','--data','add'],
+    # ['-c','new_tree','-l','focal','-g','1.5','--data','add'],
+    # ['-c','new_tree','-l','focal','-g','1.5','--data','add','--model','vgg11'],
+    ['-c','new_tree','-l','focal','-g','2.0','--data','add','-r'],
+    ['-c','new_tree','-l','focal','-g','1.0','--data','add','--model','vgg11'],
+    ['-c','new_tree','-l','focal','-g','2.0','--data','add','--model','vgg11'],
 ]
 
 split_list = [
@@ -49,9 +60,11 @@ for mode in mode_list:
     
     command = ['python','make_log_Graphs.py','--depth','1','--leaf','01']+command_list[mode]
     command = [c for c in command if c != '-r']
+    print(command)
     subprocess.run(command)
 
     command = ['python','draw_heatmap.py','--depth','1','--leaf','01']+command_list[mode]
     command = [c for c in command if c != '-r']
+    print(command)
     subprocess.run(command)
 

@@ -18,6 +18,10 @@ import sys
 import argparse
 from tqdm import tqdm
 
+import smtplib
+from email.mime.text import MIMEText
+from email.utils import formatdate
+
 def make_dirname(args):
     if args.classify_mode == 'subtype':
         dir_name = f'subtype_classify'
@@ -75,6 +79,8 @@ def make_filename(args):
         filename = f'subtype_classify'
         if args.fc:
             filename = f'fc_{filename}'
+        if args.model != '':
+            filename = f'{args.model}_{filename}'
         if args.data != '':
             if args.reduce:
                 filename = f'reduce_{filename}'
@@ -91,6 +97,8 @@ def make_filename(args):
             filename = f'{filename}_aug'
         if args.fc:
             filename = f'fc_{filename}'
+        if args.model != '':
+            filename = f'{args.model}_{filename}'
         if args.data != '':
             if args.reduce:
                 filename = f'reduce_{filename}'
@@ -108,6 +116,8 @@ def make_filename(args):
             filename = f'{filename}_aug'
         if args.fc:
             filename = f'fc_{filename}'
+        if args.model != '':
+            filename = f'{args.model}_{filename}'
         if args.data != '':
             if args.reduce:
                 filename = f'reduce_{filename}'
@@ -122,3 +132,33 @@ def makedir(path):
             os.makedirs(path)
         except:
             return
+
+def send_email(body:str):
+    MAIL_ADDRESS = 'nitech28114106@gmail.com'
+    PASSWORD = 'yrxqmyxhkglnpfsq'
+    TO_ADDRESS1 = 'yyph.fam@gmail.com'
+    TO_ADDRESS2 = 'ckv14106@nitech.jp'
+
+    smtpobj = smtplib.SMTP('smtp.gmail.com', 587)
+    smtpobj.ehlo()
+    smtpobj.starttls()
+    smtpobj.ehlo()
+    smtpobj.login(MAIL_ADDRESS, PASSWORD)
+
+    msg = make_msg(MAIL_ADDRESS, TO_ADDRESS1, body)
+    smtpobj.sendmail(MAIL_ADDRESS, TO_ADDRESS1, msg.as_string())
+
+    msg = make_msg(MAIL_ADDRESS, TO_ADDRESS2, body)
+    smtpobj.sendmail(MAIL_ADDRESS, TO_ADDRESS2, msg.as_string())
+    
+    smtpobj.close()
+
+def make_msg(from_addr, to_addr, body_msg):
+    subject = 'inform finished program'
+    msg = MIMEText(body_msg)
+    msg['Subject'] = subject
+    msg['From'] = from_addr
+    msg['To'] = to_addr
+    msg['Date'] = formatdate()
+
+    return msg

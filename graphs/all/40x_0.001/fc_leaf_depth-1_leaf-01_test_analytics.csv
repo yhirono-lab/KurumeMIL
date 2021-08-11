@@ -1,0 +1,14 @@
+fc_leaf_depth-1_leaf-01
+Bag,pred:0,pred:1
+true:0,2194,1373
+true:1,734,3520
+recall,0.6150827025511635,0.8274565115185708
+total,7821
+accuracy,0.7305971103439458
+
+Slide,pred:0,pred:1
+true:0,50,29
+true:1,13,76
+recall,0.6329113924050633,0.8539325842696629
+total,168
+accuracy,0.75

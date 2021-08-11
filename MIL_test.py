@@ -99,16 +99,16 @@ def test_model(args):
     elif args.classify_mode == 'subtype':
         _, test_dataset, label_num = ds.load_svs(args)
 
-    log = f'{SAVE_PATH}/train_log/{dir_name}/log_{args.mag}_train-{args.train}.csv'
+    log = f'{SAVE_PATH}/train_log/{dir_name}/log_{args.mag}_{args.lr}_train-{args.train}.csv'
     epoch_m = select_epoch(log)
     print(f'best epoch is {epoch_m}')
 
     # resultファイルの作成
     utils.makedir(f'{SAVE_PATH}/test_result/{dir_name}')
-    result = f'{SAVE_PATH}/test_result/{dir_name}/test_{args.mag}_train-{args.train}_epoch-{epoch_m}.csv'
-    update_test_result(f'{SAVE_PATH}/test_result/{dir_name}', f'test_{args.mag}_train-{args.train}', epoch_m)
+    result = f'{SAVE_PATH}/test_result/{dir_name}/test_{args.mag}_{args.lr}_train-{args.train}_epoch-{epoch_m}.csv'
+    update_test_result(f'{SAVE_PATH}/test_result/{dir_name}', f'test_{args.mag}_{args.lr}_train-{args.train}', epoch_m)
     if os.path.exists(result):
-        print(f'[{dir_name}/test_{args.mag}_train-{args.train}_epoch-{epoch_m}.csv] has been already done')
+        print(f'[{dir_name}/test_{args.mag}_{args.lr}_train-{args.train}_epoch-{epoch_m}.csv] has been already done')
         exit()
     f = open(result, 'w')
     f.close()
@@ -120,7 +120,7 @@ def test_model(args):
     class_predictor = class_predictor(label_num)
     # DAMIL構築
     model = MIL(feature_extractor, class_predictor)
-    model_params = f'{SAVE_PATH}/model_params/{dir_name}/{args.mag}_train-{args.train}/{args.mag}_train-{args.train}_epoch-{epoch_m}.pth'
+    model_params = f'{SAVE_PATH}/model_params/{dir_name}/{args.mag}_{args.lr}_train-{args.train}/{args.mag}_{args.lr}_train-{args.train}_epoch-{epoch_m}.pth'
     model.load_state_dict(torch.load(model_params, map_location='cuda'))
     model = model.to(device)
 
@@ -162,8 +162,9 @@ if __name__ == '__main__':
     parser.add_argument('--model', default='', choices=['', 'vgg11'])
     parser.add_argument('--name', default='Simple', choices=['Full', 'Simple'], help='choose name_name')
     parser.add_argument('--gpu', default=1, type=int, help='input gpu num')
-    parser.add_argument('-c', '--classify_mode', default='leaf', choices=['leaf', 'subtype', 'new_tree'], help='leaf->based on tree, simple->based on subtype')
+    parser.add_argument('-c', '--classify_mode', default='new_tree', choices=['leaf', 'subtype', 'new_tree'], help='leaf->based on tree, simple->based on subtype')
     parser.add_argument('-l', '--loss_mode', default='normal', choices=['normal','invarse','myinvarse','LDAM','focal'], help='select loss type')
+    parser.add_argument('--lr', default=0.001, type=float)
     parser.add_argument('-C', '--constant', default=None)
     parser.add_argument('-g', '--gamma', default=None)
     parser.add_argument('-a', '--augmentation', action='store_true')

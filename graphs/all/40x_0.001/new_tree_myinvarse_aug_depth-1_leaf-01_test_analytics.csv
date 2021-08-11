@@ -1,0 +1,14 @@
+new_tree_myinvarse_aug_depth-1_leaf-01
+Bag,pred:0,pred:1
+true:0,77,526
+true:1,208,7114
+recall,0.12769485903814262,0.9715924610762087
+total,7925
+accuracy,0.9073817034700316
+
+Slide,pred:0,pred:1
+true:0,1,12
+true:1,2,152
+recall,0.07692307692307693,0.987012987012987
+total,167
+accuracy,0.9161676646706587
