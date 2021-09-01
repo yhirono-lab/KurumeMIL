@@ -17,31 +17,34 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torchvision.models as models
 
+a = 0.123124535
+print('aaa_'+'{:.4f}'.format(a))
+
 """ mail送信の確認 """
-import smtplib
-from email.mime.text import MIMEText
-from email.utils import formatdate
-MAIL_ADDRESS = 'nitech28114106@gmail.com'
-PASSWORD = 'yrxqmyxhkglnpfsq'
+# import smtplib
+# from email.mime.text import MIMEText
+# from email.utils import formatdate
+# MAIL_ADDRESS = 'nitech28114106@gmail.com'
+# PASSWORD = 'yrxqmyxhkglnpfsq'
 
-smtpobj = smtplib.SMTP('smtp.gmail.com', 587)
-smtpobj.ehlo()
-smtpobj.starttls()
-smtpobj.ehlo()
-smtpobj.login(MAIL_ADDRESS, PASSWORD)
+# smtpobj = smtplib.SMTP('smtp.gmail.com', 587)
+# smtpobj.ehlo()
+# smtpobj.starttls()
+# smtpobj.ehlo()
+# smtpobj.login(MAIL_ADDRESS, PASSWORD)
 
-body_msg = 'test message'
-subject = 'test title'
-from_addr = 'ckv14106@nitech.jp'
-to_addr = 'yyph.fam@gmail.com'
-msg = MIMEText(body_msg)
-msg['Subject'] = subject
-msg['From'] = from_addr
-msg['To'] = to_addr
-msg['Date'] = formatdate()
+# body_msg = 'test message'
+# subject = 'test title'
+# from_addr = 'ckv14106@nitech.jp'
+# to_addr = 'yyph.fam@gmail.com'
+# msg = MIMEText(body_msg)
+# msg['Subject'] = subject
+# msg['From'] = from_addr
+# msg['To'] = to_addr
+# msg['Date'] = formatdate()
 
-smtpobj.sendmail(from_addr, to_addr, msg.as_string())
-smtpobj.close()
+# smtpobj.sendmail(from_addr, to_addr, msg.as_string())
+# smtpobj.close()
 
 """ softmaxとcross entropyの計算の確認 """
 # x = torch.tensor([[0.222,0.978],[0.3335,0.886]])

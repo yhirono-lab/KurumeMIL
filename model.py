@@ -25,7 +25,7 @@ class CEInvarse(nn.Module):
 
 
 class FocalLoss(nn.Module):
-    def __init__(self, rank, class_num_list, gamma=1.0):
+    def __init__(self, rank, class_num_list, gamma=1.0, weight_flag=False, reduction_flag=True):
         # ほとんどが識別に関係のない背景であることを考慮したLoss
         # 大きく間違っている場合は通常のCE-Lossと同じだが、
         # ほぼ正解している場合に対してはLossとして計上しない仕組み
@@ -33,12 +33,27 @@ class FocalLoss(nn.Module):
         self.rank = rank
         self.class_num_list = class_num_list
         self.gamma = gamma
+
+        n_RIGHT = class_num_list[0]
+        n_LEFT = class_num_list[1]
+        weight = torch.tensor([1/(n_RIGHT/(n_RIGHT+n_LEFT)), 1/(n_LEFT/(n_RIGHT+n_LEFT))])
+        self.weight_flag = weight_flag
+        self.weight = weight.to(rank)
+        self.reduction = torch.sum(self.weight)
+        self.reduction_flag = reduction_flag
         
     def forward(self, x, target):
         index = F.one_hot(target, len(self.class_num_list)).type(torch.uint8)
         x_softmax = F.softmax(x, dim=1).to(self.rank)
         loss = -1. * index * torch.log(x_softmax) # cross entropy
         loss = loss * (1 - x_softmax) ** self.gamma # focal loss
+
+        if self.weight_flag:
+            if self.reduction_flag:
+                loss = self.weight*loss/self.reduction
+            else:
+                loss = self.weight*loss
+
         # weight = torch.pow(1-x_softmax, self.gamma).to(self.rank)
         # print(x,x_softmax)
         # print(target,weight)

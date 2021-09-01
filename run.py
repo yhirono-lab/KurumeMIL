@@ -20,21 +20,31 @@ command_list = [
     # ['-c','new_tree','-l','normal','--model','vgg11'],
     # ['-c','new_tree','-l','normal','--data','add'],
     # ['-c','new_tree','-l','normal','--data','add','--model','vgg11'],
-    # ['-c','new_tree','-l','focal','-g','1.0','--data','add','-r'],
-    # ['-c','new_tree','-l','focal','-g','1.5','--data','add'],
-    # ['-c','new_tree','-l','focal','-g','2.0','--data','add'],
-    # ['-c','new_tree','-l','focal','-g','1.0','--data','add','--model','vgg11'],
-    # ['-c','new_tree','-l','focal','-g','1.5','--data','add','--model','vgg11'],
-    # ['-c','new_tree','-l','focal','-g','2.0','--data','add','--model','vgg11'],
-    ['--depth','2','--leaf','01','-c','new_tree','-l','normal','--data','add','-r'],
-    ['--depth','1','--leaf','01','-c','new_tree','-l','focal','-g','2.0','--data','add','-r'],
-    ['--depth','1','--leaf','01','-c','new_tree','-l','focal','-g','1.0','--data','add','--model','vgg11'],
-    ['--depth','1','--leaf','01','-c','new_tree','-l','focal','-g','2.0','--data','add','--model','vgg11'],
-    ['--depth','2','--leaf','01','-c','new_tree','-l','myinvarse','--data','add'],
-    ['--depth','2','--leaf','01','-c','new_tree','-l','LDAM','-C','0.5','--data','add'],
-    ['--depth','2','--leaf','01','-c','new_tree','-l','normal','--data','add','--model','vgg11'],
+    # ['--depth','1','--leaf','01','-c','new_tree','-l','focal','-g','1.0','--data','add','-r'],
+    # ['--depth','1','--leaf','01','-c','new_tree','-l','focal','-g','2.0','--data','add','-r'],
+    # ['--depth','1','--leaf','01','-c','new_tree','-l','focal','-g','1.0','--data','add','--model','vgg11','-r'],
+    # ['--depth','1','--leaf','01','-c','new_tree','-l','focal','-g','2.0','--data','add','--model','vgg11'],
+    # ['--depth','1','--leaf','01','-c','new_tree','-l','LDAM','-C','0.5','--data','add','--lr','0.0001'],
+    # ['--depth','2','--leaf','01','-c','new_tree','-l','normal','--data','add','-r'],
+    # ['--depth','3','--leaf','01','-c','new_tree','-l','normal','--data','add','-r'],
+    # ['--depth','4','--leaf','01','-c','new_tree','-l','normal','--data','add'],
+    # ['--depth','2','--leaf','01','-c','new_tree','-l','normal','--data','add','--model','vgg11'],
+    # ['--depth','3','--leaf','01','-c','new_tree','-l','normal','--data','add','--model','vgg11'],
+    # ['--depth','4','--leaf','01','-c','new_tree','-l','normal','--data','add','--model','vgg11'],
+    # ['--depth','2','--leaf','01','-c','new_tree','-l','myinvarse','--data','add'],
+    # ['--depth','3','--leaf','01','-c','new_tree','-l','myinvarse','--data','add'],
+    # ['--depth','4','--leaf','01','-c','new_tree','-l','myinvarse','--data','add'],
     ['--depth','2','--leaf','01','-c','new_tree','-l','myinvarse','--data','add','--model','vgg11'],
+    ['--depth','3','--leaf','01','-c','new_tree','-l','myinvarse','--data','add','--model','vgg11'],
+    ['--depth','4','--leaf','01','-c','new_tree','-l','myinvarse','--data','add','--model','vgg11'],
+    """
+    ['--depth','2','--leaf','01','-c','new_tree','-l','LDAM','-C','0.5','--data','add'],
+    ['--depth','3','--leaf','01','-c','new_tree','-l','LDAM','-C','0.5','--data','add'],
+    ['--depth','4','--leaf','01','-c','new_tree','-l','LDAM','-C','0.5','--data','add'],
     ['--depth','2','--leaf','01','-c','new_tree','-l','LDAM','-C','0.5','--data','add','--model','vgg11'],
+    ['--depth','3','--leaf','01','-c','new_tree','-l','LDAM','-C','0.5','--data','add','--model','vgg11'],
+    ['--depth','4','--leaf','01','-c','new_tree','-l','LDAM','-C','0.5','--data','add','--model','vgg11'],
+    """
 ]
 
 split_list = [
@@ -55,7 +65,7 @@ gpu = int(args[1])
 for mode in mode_list:
     for split in split_list:
         command1 = ['python','MIL_train.py']+[split[0], split[1]]
-        command2 = ['--num_gpu','4']+command_list[mode]
+        command2 = ['--num_gpu','2']+command_list[mode]
         command = command1 + command2
         print(command)
         subprocess.run(command)

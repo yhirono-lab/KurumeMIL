@@ -26,8 +26,7 @@ split_list = [
 ]
 
 args = sys.argv
-if len(args)!=3:
-    exit()
+
 
 mode_option = [[0,1,2],[3,4,5],[6,7,8],[9,10,11,12]]
 mode_list = mode_option[int(args[1])]
@@ -35,15 +34,15 @@ mode_list = mode_option[int(args[1])]
 gpu = int(args[1])
 
 for mode in mode_list:
-    # for split in split_list:
-    #     command1 = ['python','MIL_test.py']+split+['--depth','1','--leaf','01']
-    #     command2 = ['--gpu',f'{gpu}']+command_list[mode]
-    #     command = command1 + command2
-    #     print(command)
-    #     subprocess.run(command)
+    for split in split_list:
+        command1 = ['python','MIL_test.py']+split+['--depth','1','--leaf','01']
+        command2 = ['--gpu',f'{gpu}']+command_list[mode]
+        command = command1 + command2
+        print(command)
+        subprocess.run(command)
     
-    # command = ['python','make_log_Graphs.py','--depth','1','--leaf','01']+command_list[mode]
-    # subprocess.run(command)
+    command = ['python','make_log_Graphs.py','--depth','1','--leaf','01']+command_list[mode]
+    subprocess.run(command)
 
     command = ['python','draw_heatmap.py','--depth','1','--leaf','01']+command_list[mode]
     print(command)

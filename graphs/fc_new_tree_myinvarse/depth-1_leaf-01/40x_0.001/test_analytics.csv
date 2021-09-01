@@ -1,10 +1,10 @@
 fc_new_tree_myinvarse_depth-1_leaf-01
 Bag,pred:0,pred:1
 true:0,299,304
-true:1,1734,5588
-recall,0.49585406301824214,0.7631794591641627
-total,7925
-accuracy,0.7428391167192429
+true:1,1738,5569
+recall,0.49585406301824214,0.762145887505132
+total,7910
+accuracy,0.7418457648546144
 
 Slide,pred:0,pred:1
 true:0,7,6

@@ -27,6 +27,10 @@ def get_slideID_name():
             csv_data[i,1] = 'NA'
         if csv_data[i,1] == 'CLL/SLL':
             csv_data[i,1] = 'CLL-SLL'
+        if 'N/A' in csv_data[i,1]:
+            csv_data[i,1] = csv_data[i,1].replace('N/A','NA')
+        if 'CLL/SLL' in csv_data[i,1]:
+            csv_data[i,1] = csv_data[i,1].replace('CLL/SLL','CLL-SLL')
         name_list[csv_data[i,0]] = csv_data[i,1]
 
     return name_list
@@ -95,6 +99,7 @@ def draw_heatmap(args, dir_name):
 
     bar = tqdm(total = len(att_data_list))
     for slideID in att_data_list:
+        bar.set_description(slideID)
         bar.update(1)
         pos_x = [int(x) for x in att_data_list[slideID][1]]
         pos_y = [int(y) for y in att_data_list[slideID][2]]
@@ -106,6 +111,7 @@ def draw_heatmap(args, dir_name):
         
         img = cv2.imread(f'{DATA_PATH}/hirono/svs_info_40x/{slideID}/{slideID}_thumb.tif')
         thumb = cv2.imread(f'{DATA_PATH}/hirono/svs_info_40x/{slideID}/{slideID}_thumb.tif')
+        
 
         height, width = img.shape[0], img.shape[1]
         w_num = width // t_size
@@ -152,6 +158,7 @@ def save_high_low_patches(args, dir_name):
     bar = tqdm(total = len(bagatt_data_list))
     print(bagatt_data_list.keys())
     for slideID in bagatt_data_list:
+        bar.set_description(slideID)
         bar.update(1)
         
         data = bagatt_data_list[slideID]
@@ -362,6 +369,7 @@ if __name__ == '__main__':
         exit()
 
     dir_name = utils.make_dirname(args)
+    print(args.depth)
 
     draw_heatmap(args, dir_name)
     save_high_low_patches(args, dir_name)

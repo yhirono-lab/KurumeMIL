@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 import csv
 import random
 import os
-import dataloader_svs
+import dataloader_svs_hirono
 import torch.distributed as dist
 import torch.multiprocessing as mp
 from torch.nn.parallel import DistributedDataParallel as DDP
@@ -212,7 +212,7 @@ def train_model(rank, world_size, args):
                 print('this epoch already trained')
             continue
 
-        data_train = dataloader_svs.Dataset_svs(
+        data_train = dataloader_svs_hirono.Dataset_svs(
             train=True,
             transform=transform,
             dataset=train_dataset,
@@ -242,7 +242,7 @@ def train_model(rank, world_size, args):
         train_loss += class_loss
         train_acc += correct_num
 
-        data_valid = dataloader_svs.Dataset_svs(
+        data_valid = dataloader_svs_hirono.Dataset_svs(
             train=True,
             transform=transform,
             dataset=valid_dataset,

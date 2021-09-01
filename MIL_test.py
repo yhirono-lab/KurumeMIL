@@ -8,7 +8,7 @@ import torch.distributed
 import numpy as np
 import csv
 import os
-import dataloader_svs
+import dataloader_svs_hirono
 import torch.multiprocessing as mp
 from sklearn.metrics import confusion_matrix, accuracy_score, precision_score, recall_score
 import matplotlib.pyplot as plt
@@ -107,9 +107,9 @@ def test_model(args):
     utils.makedir(f'{SAVE_PATH}/test_result/{dir_name}')
     result = f'{SAVE_PATH}/test_result/{dir_name}/test_{args.mag}_{args.lr}_train-{args.train}_epoch-{epoch_m}.csv'
     update_test_result(f'{SAVE_PATH}/test_result/{dir_name}', f'test_{args.mag}_{args.lr}_train-{args.train}', epoch_m)
-    if os.path.exists(result):
-        print(f'[{dir_name}/test_{args.mag}_{args.lr}_train-{args.train}_epoch-{epoch_m}.csv] has been already done')
-        exit()
+    # if os.path.exists(result):
+    #     print(f'[{dir_name}/test_{args.mag}_{args.lr}_train-{args.train}_epoch-{epoch_m}.csv] has been already done')
+    #     exit()
     f = open(result, 'w')
     f.close()
 
@@ -130,7 +130,7 @@ def test_model(args):
         torchvision.transforms.ToTensor()
     ])
 
-    data_test = dataloader_svs.Dataset_svs(
+    data_test = dataloader_svs_hirono.Dataset_svs(
         train=False,
         transform=transform,
         dataset=test_dataset,

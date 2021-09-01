@@ -1,0 +1,14 @@
+add_reduce_vgg11_new_tree_depth-4_leaf-01
+Bag,pred:0,pred:1
+true:0,6438,503
+true:1,2316,601
+recall,0.9275320558997263,0.20603359616043881
+total,9858
+accuracy,0.7140393588963279
+
+Slide,pred:0,pred:1
+true:0,133,11
+true:1,49,12
+recall,0.9236111111111112,0.19672131147540983
+total,205
+accuracy,0.7073170731707317

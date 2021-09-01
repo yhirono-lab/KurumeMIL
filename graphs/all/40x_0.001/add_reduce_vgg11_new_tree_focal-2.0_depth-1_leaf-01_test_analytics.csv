@@ -1,0 +1,14 @@
+add_reduce_vgg11_new_tree_focal-2.0_depth-1_leaf-01
+Bag,pred:0,pred:1
+true:0,1699,938
+true:1,1501,5806
+recall,0.6442927569207433,0.7945805392089776
+total,9944
+accuracy,0.7547264682220435
+
+Slide,pred:0,pred:1
+true:0,36,20
+true:1,32,122
+recall,0.6428571428571429,0.7922077922077922
+total,210
+accuracy,0.7523809523809524

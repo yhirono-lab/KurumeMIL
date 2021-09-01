@@ -56,7 +56,7 @@ def make_all_recall_list(args):
             recall_all = np.concatenate((recall_all, space, recall_model), axis=0)
 
     print(recall_all)
-    np.savetxt(f'./graphs/compare/{args.mag}_{args.lr}/all_recall_list.csv', recall_all, delimiter=',', fmt='%s')
+    np.savetxt(f'./graphs/compare/depth{args.depth}/{args.mag}_{args.lr}/all_recall_list.csv', recall_all, delimiter=',', fmt='%s')
 
 def make_all_log_graph(args):
     loss_all = {}
@@ -81,47 +81,48 @@ def make_all_log_graph(args):
                     log = log[1:21,1:].astype(np.float32)
                     if log.shape[0] == 20:
                         log_data_list.append(log)
-        log_data_list = np.stack(log_data_list, axis=0)
-        loss_all[loss_name_list[i]] = [log_data_list, graph_label_list]
-
-    fig = plt.figure()
-    color = {
-        'vgg16':'royalblue',
-        'vgg16_fc':'darkorange',
-        'vgg11':'green',
-        'add_vgg16':'red',
-        'add_vgg11':'purple'
-    }
-    weight = {
-        'vgg16': 252/21.+252/231.,
-        'vgg16_fc': 252/21.+252/231.,
-        'vgg11': 252/21.+252/231.,
-        'add_vgg16': 315/84.+315/231.,
-        'add_vgg11': 315/84.+315/231.
-    }
-    # print(weight)
-    for i,l in enumerate(loss_all):
-        data = loss_all[l][0]
-        data = data[:,:,2]
-        x = np.array(range(data.shape[1]))+1
-        label = loss_all[l][1]
-        
-        for j,d in enumerate(data):
-            if l == 'CE-invarse':
-                d = d/weight[label[j]]
-            plt.plot(x, d, label=label[j], color=color[label[j]])
-        plt.legend(fontsize=14)
-        plt.title(l,fontsize=16)
-        plt.xlabel('epoch')
-        plt.gca().set_ylim(top=1.2)
-        plt.gca().set_ylim(bottom=-0.1)
-        plt.grid()
-        plt.savefig(f'./graphs/compare/{args.mag}_{args.lr}/valid_loss_{l}.png')
-        plt.clf()
+        if len(log_data_list)>0:
+            log_data_list = np.stack(log_data_list, axis=0)
+            loss_all[loss_name_list[i]] = [log_data_list, graph_label_list]
+    if len(loss_all)>0:
+        fig = plt.figure()
+        color = {
+            'vgg16':'royalblue',
+            'vgg16_fc':'darkorange',
+            'vgg11':'green',
+            'add_vgg16':'red',
+            'add_vgg11':'purple'
+        }
+        weight = {
+            'vgg16': 252/21.+252/231.,
+            'vgg16_fc': 252/21.+252/231.,
+            'vgg11': 252/21.+252/231.,
+            'add_vgg16': 315/84.+315/231.,
+            'add_vgg11': 315/84.+315/231.
+        }
+        # print(weight)
+        for i,l in enumerate(loss_all):
+            data = loss_all[l][0]
+            data = data[:,:,2]
+            x = np.array(range(data.shape[1]))+1
+            label = loss_all[l][1]
+            
+            for j,d in enumerate(data):
+                if l == 'CE-invarse':
+                    d = d/weight[label[j]]
+                plt.plot(x, d, label=label[j], color=color[label[j]])
+            plt.legend(fontsize=14)
+            plt.title(l,fontsize=16)
+            plt.xlabel('epoch')
+            plt.gca().set_ylim(top=1.2)
+            plt.gca().set_ylim(bottom=-0.1)
+            plt.grid()
+            plt.savefig(f'./graphs/compare/depth{args.depth}/{args.mag}_{args.lr}/valid_loss_{l}.png')
+            plt.clf()
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='This program is MIL using Kurume univ. data')
-    parser.add_argument('--depth', default='1', help='choose depth')
+    parser.add_argument('--depth', default='3', help='choose depth')
     parser.add_argument('--leaf', default='01', help='choose leafs')
     parser.add_argument('--mag', default='40x', choices=['5x', '10x', '20x', '40x'], help='choose mag')
     parser.add_argument('--lr', default=0.001, type=float)
@@ -131,16 +132,16 @@ if __name__ == '__main__':
 
     model_list = ['', 'fc_', 'vgg11_']
     model_name_list = ['vgg16', 'vgg16_fc', 'vgg11']
-    loss_list = ['', '_myinvarse', '_LDAM-0.1', '_LDAM-0.3', '_LDAM-0.5']
-    loss_name_list = ['Cross_Entropy', 'CE-invarse', 'LDAM-0.1', 'LDAM-0.3', 'LDAM-0.5']
+    loss_list = ['', '_myinvarse', '_LDAM-0.1', '_LDAM-0.3', '_LDAM-0.5', '_focal-1.0', '_focal-2.0']
+    loss_name_list = ['Cross_Entropy', 'CE-invarse', 'LDAM-0.1', 'LDAM-0.3', 'LDAM-0.5', 'focal-1.0', 'focal-2.0']
     data_list = ['', 'add_reduce_']
     data_name_list = ['', 'add']
 
     import utils
-    utils.makedir(f'./graphs/compare/{args.mag}_{args.lr}/')
+    utils.makedir(f'./graphs/compare/depth{args.depth}/{args.mag}_{args.lr}/')
     make_all_recall_list(args)
     make_all_log_graph(args)
 
-    utils.send_email(body=str(args))
+    # utils.send_email(body=str(args))
                 
                 

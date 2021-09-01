@@ -8,7 +8,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.base import MetaEstimatorMixin
-from sklearn.metrics import confusion_matrix, accuracy_score, precision_score, recall_score
+from sklearn.metrics import confusion_matrix, accuracy_score, precision_score, recall_score, f1_score, classification_report
 import utils
 
 def load_logfile(file_dir, mag, lr):
@@ -195,6 +195,8 @@ def save_test_cm(args, bag_label, slide_label, save_dir, filename):
     f.close()
 
     shutil.copyfile(f'{save_dir}/test_analytics.csv', f'./graphs/all/{args.mag}_{args.lr}/{filename}_test_analytics.csv')
+
+    print(classification_report(y_true=bag_label[0], y_pred=bag_label[1]))
 
 def make_log_Graphs(args): 
     dir_name = utils.make_dirname(args)
