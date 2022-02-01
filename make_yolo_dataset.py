@@ -18,9 +18,9 @@ def makedir(path):
         os.makedirs(path)
 
 def get_slideID_name():
-    file_name = '../KurumeTree/add_data/Data_FullName_svs.csv'
+    file_name = '../KurumeTree/add_data/Data_SimpleName_svs.csv'
     csv_data = np.loadtxt(file_name, delimiter=',', dtype='str')
-    name_list = {}
+    name_dict = {}
 
     for i in range(1,csv_data.shape[0]):
         if csv_data[i,1] == 'N/A':
@@ -31,19 +31,20 @@ def get_slideID_name():
             csv_data[i,1] = csv_data[i,1].replace('N/A','NA')
         if 'CLL/SLL' in csv_data[i,1]:
             csv_data[i,1] = csv_data[i,1].replace('CLL/SLL','CLL-SLL')
-        name_list[csv_data[i,0]] = csv_data[i,1]
+        name_dict[csv_data[i,0]] = csv_data[i,1]
 
-    return name_list
+    return name_dict
 
-# bag単位でattentionを読み込む
-def load_bagatt_data(dir_name, args):
-    test_fn_list = os.listdir(f'{SAVE_PATH}/test_result/{dir_name}')
+# Slide単位でattentionを読み込む
+def load_bagatt_data(args, target_list=None):
+    dir_name = args.dir_name
+    test_fn_list = os.listdir(f'./test_result/{dir_name}')
     test_fn_list = [test_fn for test_fn in test_fn_list if args.mag in test_fn and str(args.lr) in test_fn and 'epoch' in test_fn]
     print(test_fn_list)
+
     bagatt_data_list = {}
-    print(test_fn_list)
     for test_fn in test_fn_list:
-        csv_data = open(f'{SAVE_PATH}/test_result/{dir_name}/{test_fn}')
+        csv_data = open(f'./test_result/{dir_name}/{test_fn}')
         reader = csv.reader(csv_data)
         row_number = 0
         for row in reader:
@@ -53,10 +54,12 @@ def load_bagatt_data(dir_name, args):
                 true_label = row[2]
                 pred_label = row[3]
 
-                if slideID not in bagatt_data_list and true_label == args.label:
+                slide_name = slideID_name_dict[slideID]
+
+                if slideID not in bagatt_data_list and true_label == args.label and slide_name in target_list:
                     bagatt_data_list[slideID] = [row[2:],[[],[],[]]]
             else:
-                if true_label == pred_label and true_label == args.label:
+                if true_label == pred_label and true_label == args.label and slide_name in target_list:
                     bagatt_data_list[slideID][1][row_number] += row[1:]
                 row_number += 1
     print(len(bagatt_data_list))
@@ -64,20 +67,20 @@ def load_bagatt_data(dir_name, args):
     return bagatt_data_list
 
 
-def save_high_low_patches(args, dir_name):
+def save_high_low_patches(args, data_list):
     print('make high&low patch tiles')
-    bagatt_data_list = load_bagatt_data(dir_name, args)
 
-    save_dir = f'{SAVE_PATH}/yolo_data/{dir_name}-{args.label}/{args.mag}_{args.lr}'
+    dir_name = args.dir_name
+    save_dir = f'./yolo_data/{dir_name}-{args.label}/{args.mag}_{args.lr}'
     makedir(save_dir)
 
-    bar = tqdm(total = len(bagatt_data_list))
-    print(bagatt_data_list.keys())
-    for slideID in bagatt_data_list:
+    bar = tqdm(total = len(data_list))
+    print(data_list.keys())
+    for slideID in data_list:
         bar.set_description(slideID)
         bar.update(1)
         
-        data = bagatt_data_list[slideID]
+        data = data_list[slideID]
         label = data[0][0]
         true_data = data[1]
         att = [float(a) for a in true_data[2]]
@@ -102,8 +105,6 @@ def save_patch(slideID, mag, label, data, save_dir):
     for i in range(img_num):
         idx = sort_idx[i]
         pos = [data[0][idx], data[1][idx]]
-        # pos_x = data[0][idx]
-        # pos_y = data[1][idx]
         att = data[2][idx]
 
         if mag == '40x':
@@ -114,28 +115,28 @@ def save_patch(slideID, mag, label, data, save_dir):
             b_img = svs.read_region((pos[0]-(int(b_size*3/2)),pos[1]-(int(b_size*3/2))),1,(b_size,b_size)).convert('RGB')
         elif mag == '5x':
             b_img = svs.read_region((pos[0]-(int(b_size*7/2)),pos[1]-(int(b_size*7/2))),1,(b_size*2,b_size*2)).convert('RGB')
+
         b_img = svs.read_region((pos[0], pos[1]), 0, (b_size,b_size)).convert('RGB')
-        img_name = f'{slideID}_{label}_{slideID_name_dict[slideID]}_{i}_{pos[0]}_{pos[1]}_'+'{:.4f}'.format(att)
+        img_name = f'{slideID}_{label}_{slideID_name_dict[slideID]}_{pos[0]}_{pos[1]}'
         b_img.save(f'{save_dir}/{img_name}.tif')
 
 
 DATA_PATH = '/Dataset/Kurume_Dataset'
-SAVE_PATH = '.'
 
 svs_fn_list = os.listdir(f'/Raw/Kurume_Dataset/svs')
 slideID_name_dict = get_slideID_name()
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='This program is MIL using Kurume univ. data')
-    parser.add_argument('--depth', default=None, help='choose depth')
-    parser.add_argument('--leaf', default=None, help='choose leafs')
-    parser.add_argument('--label', default=None, help='choose label')
-    parser.add_argument('--data', default='', choices=['', 'add'])
+    parser.add_argument('--depth', default='3', help='choose depth')
+    parser.add_argument('--leaf', default='01', help='choose leafs')
+    parser.add_argument('--label', default = '1')
+    parser.add_argument('--data', default='add', choices=['', 'add'])
     parser.add_argument('--mag', default='40x', choices=['5x', '10x', '20x', '40x'], help='choose mag')
     parser.add_argument('--model', default='', choices=['', 'vgg11'])
     parser.add_argument('--name', default='Simple', choices=['Full', 'Simple'], help='choose name_mode')
     parser.add_argument('-c', '--classify_mode', default='new_tree', choices=['leaf', 'subtype', 'new_tree'], help='leaf->based on tree, simple->based on subtype')
-    parser.add_argument('-l', '--loss_mode', default='normal', choices=['normal','myinvarse','LDAM','focal'], help='select loss type')
+    parser.add_argument('-l', '--loss_mode', default='myinvarse', choices=['normal','myinvarse','LDAM','focal','focal-weight'], help='select loss type')
     parser.add_argument('--lr', default=0.001, type=float)
     parser.add_argument('-C', '--constant', default=None)
     parser.add_argument('-g', '--gamma', default=None)
@@ -161,6 +162,18 @@ if __name__ == '__main__':
         print(f'when loss_mode is focal, input gamma param')
         exit()
 
-    dir_name = utils.make_dirname(args)
+    # target_name_list = ['AITL', 'ATLL', 'PTCL_NOS']
+    target_name_list = ['Meta']
+    args.dir_name = utils.make_dirname(args)
+    print(args.dir_name)
+    
+    data_list = load_bagatt_data(args, target_name_list)
+    print(data_list.keys())
 
-    save_high_low_patches(args, dir_name)
+    save_high_low_patches(args, data_list)
+
+
+    # print(SlideID_name_dict)
+    # print(args.label)
+    # print(len(list(data.keys())))
+

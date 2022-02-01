@@ -41,6 +41,8 @@ def load_att_data(dir_name, args):
     test_fn_list = [test_fn for test_fn in test_fn_list if args.mag in test_fn and str(args.lr) in test_fn and 'epoch' in test_fn]
     print(test_fn_list)
     att_data_list = {}
+    max_att = 0.0
+    min_att = 1.0
     for test_fn in test_fn_list:
         csv_data = open(f'{SAVE_PATH}/test_result/{dir_name}/{test_fn}')
         reader = csv.reader(csv_data)
@@ -53,10 +55,15 @@ def load_att_data(dir_name, args):
                     att_data_list[slideID] = [row[2:],[],[],[]]
             else:
                 att_data_list[slideID][row_number] += row[1:]
+            
+            if row_number == 3:
+                row_data = np.array(row[1:], dtype=np.float32)
+                max_att = max_att if max_att>np.max(row_data) else np.max(row_data)
+                min_att = min_att if min_att<np.min(row_data) else np.min(row_data)
             row_number += 1
     print(len(att_data_list))
     
-    return att_data_list
+    return att_data_list, max_att, min_att
 
 # bag単位でattentionを読み込む
 def load_bagatt_data(dir_name, args):
@@ -92,7 +99,7 @@ def draw_heatmap(args, dir_name):
     print('make attention heat map')
     b_size = 224
     t_size = 4
-    att_data_list = load_att_data(dir_name, args)
+    att_data_list, _, _ = load_att_data(dir_name, args)
 
     save_dir = f'{SAVE_PATH}/attention_map/{dir_name}/{args.mag}_{args.lr}'
     makedir(save_dir)
@@ -342,7 +349,7 @@ if __name__ == '__main__':
     parser.add_argument('--name', default='Simple', choices=['Full', 'Simple'], help='choose name_mode')
     parser.add_argument('--gpu', default=1, type=int, help='input gpu num')
     parser.add_argument('-c', '--classify_mode', default='leaf', choices=['leaf', 'subtype', 'new_tree'], help='leaf->based on tree, simple->based on subtype')
-    parser.add_argument('-l', '--loss_mode', default='normal', choices=['normal','myinvarse','LDAM','focal'], help='select loss type')
+    parser.add_argument('-l', '--loss_mode', default='normal', choices=['normal','myinvarse','LDAM','focal','focal-weight'], help='select loss type')
     parser.add_argument('--lr', default=0.001, type=float)
     parser.add_argument('-C', '--constant', default=None)
     parser.add_argument('-g', '--gamma', default=None)
@@ -364,7 +371,7 @@ if __name__ == '__main__':
         print(f'when loss_mode is LDAM, input Constant param')
         exit()
 
-    if args.loss_mode == 'focal' and args.gamma == None:
+    if (args.loss_mode == 'focal' or args.loss_mode == 'focal-weight') and args.gamma == None:
         print(f'when loss_mode is focal, input gamma param')
         exit()
 
@@ -372,4 +379,4 @@ if __name__ == '__main__':
     print(args.depth)
 
     draw_heatmap(args, dir_name)
-    save_high_low_patches(args, dir_name)
+    # save_high_low_patches(args, dir_name)

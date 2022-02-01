@@ -1,6 +1,3 @@
-data/ML*
-data/svs/
-data/svs_info/
 /train_log/
 /model_params/
 /attention_map/

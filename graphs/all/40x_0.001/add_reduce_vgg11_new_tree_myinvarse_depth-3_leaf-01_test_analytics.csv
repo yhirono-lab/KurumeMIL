@@ -1,0 +1,14 @@
+add_reduce_vgg11_new_tree_myinvarse_depth-3_leaf-01
+Bag,pred:0,pred:1
+true:0,3969,775
+true:1,782,2862
+recall,0.8366357504215851,0.7854006586169044
+total,8388
+accuracy,0.8143776824034334
+
+Slide,pred:0,pred:1
+true:0,83,16
+true:1,16,64
+recall,0.8383838383838383,0.8
+total,179
+accuracy,0.8212290502793296

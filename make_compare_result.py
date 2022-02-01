@@ -122,7 +122,7 @@ def make_all_log_graph(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='This program is MIL using Kurume univ. data')
-    parser.add_argument('--depth', default='3', help='choose depth')
+    parser.add_argument('--depth', default='2', help='choose depth')
     parser.add_argument('--leaf', default='01', help='choose leafs')
     parser.add_argument('--mag', default='40x', choices=['5x', '10x', '20x', '40x'], help='choose mag')
     parser.add_argument('--lr', default=0.001, type=float)

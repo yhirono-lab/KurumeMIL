@@ -186,6 +186,8 @@ def train_model(rank, world_size, args):
         loss_fn = LDAMLoss(rank, label_count, Constant=float(args.constant)).to(rank)
     if args.loss_mode == 'focal':
         loss_fn = FocalLoss(rank, label_count, gamma=float(args.gamma)).to(rank)
+    if args.loss_mode == 'focal-weight':
+        loss_fn = FocalLoss(rank, label_count, gamma=float(args.gamma), weight_flag=True).to(rank)
     lr = args.lr
     
      # 前処理
@@ -303,7 +305,7 @@ if __name__ == '__main__':
     parser.add_argument('--name', default='Simple', choices=['Full', 'Simple'], help='choose name_mode')
     parser.add_argument('--num_gpu', default=1, type=int, help='input gpu num')
     parser.add_argument('-c', '--classify_mode', default='new_tree', choices=['leaf', 'subtype', 'new_tree'], help='leaf->based on tree, simple->based on subtype')
-    parser.add_argument('-l', '--loss_mode', default='normal', choices=['normal','myinvarse','LDAM','focal'], help='select loss type')
+    parser.add_argument('-l', '--loss_mode', default='normal', choices=['normal','myinvarse','LDAM','focal','focal-weight'], help='select loss type')
     parser.add_argument('--lr', default=0.001, type=float)
     parser.add_argument('-C', '--constant', default=None)
     parser.add_argument('-g', '--gamma', default=None)
@@ -328,7 +330,7 @@ if __name__ == '__main__':
         print(f'when loss_mode is LDAM, input Constant param')
         exit()
     
-    if args.loss_mode == 'focal' and args.gamma == None:
+    if (args.loss_mode == 'focal' or args.loss_mode == 'focal-weight') and args.gamma == None:
         print(f'when loss_mode is focal, input gamma param')
         exit()
 

@@ -1,0 +1,14 @@
+add_reduce_new_tree_focal-weight-1.0_depth-1_leaf-01
+Bag,pred:0,pred:1
+true:0,1816,821
+true:1,2823,4484
+recall,0.6886613576033371,0.61365813603394
+total,9944
+accuracy,0.6335478680611424
+
+Slide,pred:0,pred:1
+true:0,39,17
+true:1,60,94
+recall,0.6964285714285714,0.6103896103896104
+total,210
+accuracy,0.6333333333333333

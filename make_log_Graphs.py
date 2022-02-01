@@ -225,7 +225,7 @@ if __name__ == '__main__':
     parser.add_argument('--mag', default='40x', choices=['5x', '10x', '20x', '40x'], help='choose mag')
     parser.add_argument('--name', default='Simple', choices=['Full', 'Simple'], help='choose name_mode')
     parser.add_argument('-c', '--classify_mode', default='leaf', choices=['leaf', 'subtype', 'new_tree'], help='leaf->based on tree, simple->based on subtype')
-    parser.add_argument('-l', '--loss_mode', default='normal', choices=['normal','invarse','myinvarse','LDAM','focal'], help='select loss type')
+    parser.add_argument('-l', '--loss_mode', default='normal', choices=['normal','invarse','myinvarse','LDAM','focal','focal-weight'], help='select loss type')
     parser.add_argument('--lr', default=0.001, type=float)
     parser.add_argument('-C', '--constant', default=None)
     parser.add_argument('-g', '--gamma', default=None)
@@ -247,7 +247,7 @@ if __name__ == '__main__':
         print(f'when loss_mode is LDAM, input Constant param')
         exit()
     
-    if args.loss_mode == 'focal' and args.gamma == None:
+    if (args.loss_mode == 'focal' or args.loss_mode == 'focal-weight') and args.gamma == None:
         print(f'when loss_mode is focal, input gamma param')
         exit()
 

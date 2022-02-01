@@ -107,9 +107,9 @@ def test_model(args):
     utils.makedir(f'{SAVE_PATH}/test_result/{dir_name}')
     result = f'{SAVE_PATH}/test_result/{dir_name}/test_{args.mag}_{args.lr}_train-{args.train}_epoch-{epoch_m}.csv'
     update_test_result(f'{SAVE_PATH}/test_result/{dir_name}', f'test_{args.mag}_{args.lr}_train-{args.train}', epoch_m)
-    # if os.path.exists(result):
-    #     print(f'[{dir_name}/test_{args.mag}_{args.lr}_train-{args.train}_epoch-{epoch_m}.csv] has been already done')
-    #     exit()
+    if os.path.exists(result):
+        print(f'[{dir_name}/test_{args.mag}_{args.lr}_train-{args.train}_epoch-{epoch_m}.csv] has been already done')
+        exit()
     f = open(result, 'w')
     f.close()
 
@@ -163,7 +163,7 @@ if __name__ == '__main__':
     parser.add_argument('--name', default='Simple', choices=['Full', 'Simple'], help='choose name_name')
     parser.add_argument('--gpu', default=1, type=int, help='input gpu num')
     parser.add_argument('-c', '--classify_mode', default='new_tree', choices=['leaf', 'subtype', 'new_tree'], help='leaf->based on tree, simple->based on subtype')
-    parser.add_argument('-l', '--loss_mode', default='normal', choices=['normal','invarse','myinvarse','LDAM','focal'], help='select loss type')
+    parser.add_argument('-l', '--loss_mode', default='normal', choices=['normal','invarse','myinvarse','LDAM','focal','focal-weight'], help='select loss type')
     parser.add_argument('--lr', default=0.001, type=float)
     parser.add_argument('-C', '--constant', default=None)
     parser.add_argument('-g', '--gamma', default=None)
@@ -185,7 +185,7 @@ if __name__ == '__main__':
         print(f'when loss_mode is LDAM, input Constant param')
         exit()
     
-    if args.loss_mode == 'focal' and args.gamma == None:
+    if (args.loss_mode == 'focal' or args.loss_mode == 'focal-weight') and args.gamma == None:
         print(f'when loss_mode is focal, input gamma param')
         exit()
 

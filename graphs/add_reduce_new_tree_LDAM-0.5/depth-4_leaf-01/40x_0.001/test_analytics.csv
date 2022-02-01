@@ -1,0 +1,14 @@
+add_reduce_new_tree_LDAM-0.5_depth-4_leaf-01
+Bag,pred:0,pred:1
+true:0,6243,698
+true:1,1180,1737
+recall,0.8994381213081688,0.5954748028796709
+total,9858
+accuracy,0.8094948265368229
+
+Slide,pred:0,pred:1
+true:0,127,17
+true:1,23,38
+recall,0.8819444444444444,0.6229508196721312
+total,205
+accuracy,0.8048780487804879

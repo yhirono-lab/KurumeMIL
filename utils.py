@@ -39,7 +39,7 @@ def make_dirname(args):
             dir_name = f'{dir_name}_{args.loss_mode}'
         if args.loss_mode == 'LDAM':
             dir_name = f'{dir_name}-{args.constant}'
-        if args.loss_mode == 'focal':
+        if args.loss_mode == 'focal' or args.loss_mode == 'focal-weight':
             dir_name = f'{dir_name}-{args.gamma}'
         if args.augmentation:
             dir_name = f'{dir_name}_aug'
@@ -58,7 +58,7 @@ def make_dirname(args):
             dir_name = f'{dir_name}_{args.loss_mode}'
         if args.loss_mode == 'LDAM':
             dir_name = f'{dir_name}-{args.constant}'
-        if args.loss_mode == 'focal':
+        if args.loss_mode == 'focal' or args.loss_mode == 'focal-weight':
             dir_name = f'{dir_name}-{args.gamma}'
         if args.augmentation:
             dir_name = f'{dir_name}_aug'
@@ -91,7 +91,7 @@ def make_filename(args):
             filename = f'{filename}_{args.loss_mode}'
         if args.loss_mode == 'LDAM':
             filename = f'{filename}-{args.constant}'
-        if args.loss_mode == 'focal':
+        if args.loss_mode == 'focal' or args.loss_mode == 'focal-weight':
             filename = f'{filename}-{args.gamma}'
         if args.augmentation:
             filename = f'{filename}_aug'
@@ -110,7 +110,7 @@ def make_filename(args):
             filename = f'{filename}_{args.loss_mode}'
         if args.loss_mode == 'LDAM':
             filename = f'{filename}-{args.constant}'
-        if args.loss_mode == 'focal':
+        if args.loss_mode == 'focal' or args.loss_mode == 'focal-weight':
             filename = f'{filename}-{args.gamma}'
         if args.augmentation:
             filename = f'{filename}_aug'
