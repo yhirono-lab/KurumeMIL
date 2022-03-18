@@ -8,7 +8,7 @@ import torch.distributed
 import numpy as np
 import csv
 import os
-import dataloader_svs_hirono
+import dataloader_svs
 import torch.multiprocessing as mp
 from sklearn.metrics import confusion_matrix, accuracy_score, precision_score, recall_score
 import matplotlib.pyplot as plt
@@ -94,7 +94,7 @@ def test_model(args):
 
     # 訓練用と検証用に症例を分割
     import dataset_kurume as ds
-    if args.classify_mode == 'leaf' or args.classify_mode == 'new_tree':
+    if args.classify_mode == 'normal_tree' or args.classify_mode == 'kurume_tree':
         _, test_dataset, label_num = ds.load_leaf(args)
     elif args.classify_mode == 'subtype':
         _, test_dataset, label_num = ds.load_svs(args)
@@ -130,7 +130,7 @@ def test_model(args):
         torchvision.transforms.ToTensor()
     ])
 
-    data_test = dataloader_svs_hirono.Dataset_svs(
+    data_test = dataloader_svs.Dataset_svs(
         train=False,
         transform=transform,
         dataset=test_dataset,
@@ -157,13 +157,13 @@ if __name__ == '__main__':
     parser.add_argument('valid', help='choose valid data split')
     parser.add_argument('--depth', default=None, help='choose depth')
     parser.add_argument('--leaf', default=None, help='choose leafs')
-    parser.add_argument('--data', default='', choices=['', 'add'])
+    parser.add_argument('--data', default='2nd', choices=['1st', '2nd', '3rd'])
     parser.add_argument('--mag', default='40x', choices=['5x', '10x', '20x', '40x'], help='choose mag')
-    parser.add_argument('--model', default='', choices=['', 'vgg11'])
+    parser.add_argument('--model', default='vgg16', choices=['vgg16', 'vgg11'])
     parser.add_argument('--name', default='Simple', choices=['Full', 'Simple'], help='choose name_name')
     parser.add_argument('--gpu', default=1, type=int, help='input gpu num')
-    parser.add_argument('-c', '--classify_mode', default='new_tree', choices=['leaf', 'subtype', 'new_tree'], help='leaf->based on tree, simple->based on subtype')
-    parser.add_argument('-l', '--loss_mode', default='normal', choices=['normal','invarse','myinvarse','LDAM','focal','focal-weight'], help='select loss type')
+    parser.add_argument('-c', '--classify_mode', default='kurume_tree', choices=['normal_tree', 'kurume_tree', 'subtype'], help='leaf->based on tree, simple->based on subtype')
+    parser.add_argument('-l', '--loss_mode', default='ICE', choices=['CE', 'ICE', 'LDAM', 'focal', 'focal-weight'], help='select loss type')
     parser.add_argument('--lr', default=0.001, type=float)
     parser.add_argument('-C', '--constant', default=None)
     parser.add_argument('-g', '--gamma', default=None)
@@ -172,8 +172,7 @@ if __name__ == '__main__':
     parser.add_argument('--reduce', action='store_true')
     args = parser.parse_args()
 
-    if args.data == 'add':
-        args.data = 'add_'
+    if args.data == '2nd' or args.data == '3rd':
         args.reduce = True
 
     if args.classify_mode != 'subtype':

@@ -1,3 +1,6 @@
+# yoloのデータセット用に，AMILでのアテンションの高い50枚のパッチ画像を保存する
+# 特徴的な細胞核のアノテーションをしたいので，サブタイプは特徴的なものを指定する
+
 from make_log_Graphs import load_logfile
 import numpy as np
 from PIL import Image, ImageStat, ImageDraw
@@ -131,12 +134,12 @@ if __name__ == '__main__':
     parser.add_argument('--depth', default='3', help='choose depth')
     parser.add_argument('--leaf', default='01', help='choose leafs')
     parser.add_argument('--label', default = '1')
-    parser.add_argument('--data', default='add', choices=['', 'add'])
+    parser.add_argument('--data', default='2nd', choices=['1st', '2nd', '3rd'])
     parser.add_argument('--mag', default='40x', choices=['5x', '10x', '20x', '40x'], help='choose mag')
-    parser.add_argument('--model', default='', choices=['', 'vgg11'])
+    parser.add_argument('--model', default='vgg16', choices=['vgg16', 'vgg11'])
     parser.add_argument('--name', default='Simple', choices=['Full', 'Simple'], help='choose name_mode')
-    parser.add_argument('-c', '--classify_mode', default='new_tree', choices=['leaf', 'subtype', 'new_tree'], help='leaf->based on tree, simple->based on subtype')
-    parser.add_argument('-l', '--loss_mode', default='myinvarse', choices=['normal','myinvarse','LDAM','focal','focal-weight'], help='select loss type')
+    parser.add_argument('-c', '--classify_mode', default='kurume_tree', choices=['normal_tree', 'kurume_tree', 'subtype'], help='leaf->based on tree, simple->based on subtype')
+    parser.add_argument('-l', '--loss_mode', default='ICE', choices=['CE','ICE','LDAM','focal','focal-weight'], help='select loss type')
     parser.add_argument('--lr', default=0.001, type=float)
     parser.add_argument('-C', '--constant', default=None)
     parser.add_argument('-g', '--gamma', default=None)
@@ -145,8 +148,7 @@ if __name__ == '__main__':
     parser.add_argument('--reduce', action='store_true')
     args = parser.parse_args()
     
-    if args.data == 'add':
-        args.data = 'add_'
+    if args.data == '2nd' or args.data == '3rd':
         args.reduce = True
 
     if args.classify_mode != 'subtype':
@@ -162,8 +164,11 @@ if __name__ == '__main__':
         print(f'when loss_mode is focal, input gamma param')
         exit()
 
-    # target_name_list = ['AITL', 'ATLL', 'PTCL_NOS']
-    target_name_list = ['Meta']
+    # 該当するサブタイプのパッチ画像だけ抽出する
+
+    # target_name_list = ['CHL'] # 1段目用
+    # target_name_list = ['AITL', 'ATLL', 'PTCL_NOS'] # 2段目用
+    target_name_list = ['Meta'] # 3段目用
     args.dir_name = utils.make_dirname(args)
     print(args.dir_name)
     

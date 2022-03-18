@@ -10,7 +10,7 @@ import numpy as np
 
 import openslide
 
-DATA_PATH = '/Dataset/Kurume_Dataset' # データディレクトリ
+DATA_PATH = '/Dataset/Kurume_Dataset/hirono' # データディレクトリ
 SVS_PATH = '/Raw/Kurume_Dataset'
 
 class Dataset_svs(torch.utils.data.Dataset):
@@ -24,7 +24,6 @@ class Dataset_svs(torch.utils.data.Dataset):
         self.class_num_list = [0 for c in range(class_count)]
 
         for slide_data in dataset:
-
             slideID = slide_data[0] #　症例ID
             label = slide_data[1] # クラスラベル
 
@@ -35,9 +34,9 @@ class Dataset_svs(torch.utils.data.Dataset):
                 aug = 0
 
             # 座標ファイル読み込み
-            pos = np.loadtxt(f'{DATA_PATH}/svs_info/{slideID}/{slideID}.csv', delimiter=',', dtype='int')
+            pos = np.loadtxt(f'{DATA_PATH}/svs_info_{self.mag}/{slideID}/{slideID}.csv', delimiter=',', dtype='int')
             if not self.train: # テストのときはシャッフルのシードを固定
-                np.random.seed(seed=int(slideID))
+                np.random.seed(seed=int(slideID[4:]))
             np.random.shuffle(pos) #パッチをシャッフル
             
             #最大でbag_num個のバッグを作成
@@ -66,7 +65,7 @@ class Dataset_svs(torch.utils.data.Dataset):
 
         # 症例IDを含む名前のsvsファイルを取得
         svs_list = os.listdir(f'{SVS_PATH}/svs')
-        svs_fn = [s for s in svs_list if self.bag_list[idx][1] in s[:11]]
+        svs_fn = [s for s in svs_list if self.bag_list[idx][1] in s]
         svs = openslide.OpenSlide(f'{SVS_PATH}/svs/{svs_fn[0]}')
 
         aug = self.bag_list[idx][3]

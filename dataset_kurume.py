@@ -11,6 +11,7 @@ def read_leafCSV(filepath, label):
     for row in reader:
         if os.path.exists(f'/Dataset/Kurume_Dataset/svs_info/{row[0]}') and row[1] != 'OI_ILPD':
         # if row[1] != 'OI_ILPD':
+            # OI_ILPDは別の病気？のための薬の副作用によるがんの発症なので無視する
             file_data.append([row[0], label])
         elif row[1] == 'OI_ILPD':
             # print(f'slideID{row[0]}はOI_ILPDです')
@@ -21,9 +22,12 @@ def read_leafCSV(filepath, label):
     csv_data.close()
     return file_data
 
-def reduce_data(data):
+def reduce_data(data, args):
     flag_list = {}
-    csv_data = open('../KurumeTree/add_data/add_flag_list.csv')
+    # ファイルの修飾子変更前の参照先
+    # csv_data = open('../KurumeTree/add_data/add_flag_list.csv')
+    csv_data = open(f'../KurumeTree/dataset/{args.data}/add_flag_list.csv')
+    reader = csv.reader(csv_data)
     reader = csv.reader(csv_data)
     for row in reader:
         flag_list[row[0]]=int(row[1])
@@ -37,10 +41,12 @@ def reduce_data(data):
     return reduced_data 
 
 def load_leaf(args):
-    if args.classify_mode == 'leaf':
-        dir_path = f'../KurumeTree/{args.data}result/{args.name}/unu_depth{args.depth}/leafs_data'
-    if args.classify_mode == 'new_tree':
-        dir_path = f'../KurumeTree/{args.data}result_teacher/FDC/{args.name}/unu_depth{args.depth}/leafs_data'
+    # ファイルの修飾子変更前の参照先
+    # if args.classify_mode == 'leaf':
+    #     dir_path = f'../KurumeTree/{args.data}result/{args.name}/unu_depth{args.depth}/leafs_data'
+    # if args.classify_mode == 'new_tree':
+    #     dir_path = f'../KurumeTree/{args.data}result_teacher/FDC/{args.name}/unu_depth{args.depth}/leafs_data'
+    dir_path = f'../KurumeTree/results/{args.classify_mode}/{args.data}/{args.name}/unu_depth{args.depth}/leafs_data'
 
     if args.leaf != None:
         if int(args.leaf[0])%2!=0 or int(args.leaf[1])-int(args.leaf[0])!=1:
@@ -56,7 +62,7 @@ def load_leaf(args):
         ratio = len(dataset[max_leaf])//len(dataset[min_leaf])
         print(f'{min_leaf}:{len(dataset[min_leaf])},{max_leaf}:{len(dataset[max_leaf])}')
         if args.reduce:
-            dataset[max_leaf] = reduce_data(dataset[max_leaf])
+            dataset[max_leaf] = reduce_data(dataset[max_leaf], args)
             min_leaf = np.argmin([len(dataset[0]), len(dataset[1])])
             max_leaf = np.argmax([len(dataset[0]), len(dataset[1])])
             ratio = len(dataset[max_leaf])//len(dataset[min_leaf])
@@ -116,7 +122,9 @@ def read_CSV(filepath):
     return file_data
     
 def load_svs(args):
-    file_name = f'./{args.data}data/Data_{args.name}Name.csv'
+    # ファイルの修飾子変更前の参照先
+    # file_name = f'./{args.data}data/Data_{args.name}Name.csv'
+    file_name = f'../KurumeTree/dataset/{args.data}/Data_{args.name}Name.csv'
     svs_data = read_CSV(file_name)
     
     train_dataset = []

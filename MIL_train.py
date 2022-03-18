@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 import csv
 import random
 import os
-import dataloader_svs_hirono
+import dataloader_svs
 import torch.distributed as dist
 import torch.multiprocessing as mp
 from torch.nn.parallel import DistributedDataParallel as DDP
@@ -118,7 +118,7 @@ def train_model(rank, world_size, args):
 
     # # 訓練用と検証用に症例を分割
     import dataset_kurume as ds
-    if args.classify_mode == 'leaf' or args.classify_mode == 'new_tree':
+    if args.classify_mode == 'normal_tree' or args.classify_mode == 'kurume_tree':
         train_dataset, valid_dataset, label_num = ds.load_leaf(args)
     elif args.classify_mode == 'subtype':
         train_dataset, valid_dataset, label_num = ds.load_svs(args)
@@ -178,9 +178,9 @@ def train_model(rank, world_size, args):
     ddp_model = DDP(model, device_ids=[rank])
 
     # クロスエントロピー損失関数使用
-    if args.loss_mode == 'normal':
+    if args.loss_mode == 'CE':
         loss_fn = nn.CrossEntropyLoss().to(rank)
-    if args.loss_mode == 'myinvarse':
+    if args.loss_mode == 'ICE':
         loss_fn = CEInvarse(rank, label_count).to(rank)
     if args.loss_mode == 'LDAM':
         loss_fn = LDAMLoss(rank, label_count, Constant=float(args.constant)).to(rank)
@@ -214,7 +214,7 @@ def train_model(rank, world_size, args):
                 print('this epoch already trained')
             continue
 
-        data_train = dataloader_svs_hirono.Dataset_svs(
+        data_train = dataloader_svs.Dataset_svs(
             train=True,
             transform=transform,
             dataset=train_dataset,
@@ -244,7 +244,7 @@ def train_model(rank, world_size, args):
         train_loss += class_loss
         train_acc += correct_num
 
-        data_valid = dataloader_svs_hirono.Dataset_svs(
+        data_valid = dataloader_svs.Dataset_svs(
             train=True,
             transform=transform,
             dataset=valid_dataset,
@@ -299,13 +299,13 @@ if __name__ == '__main__':
     parser.add_argument('valid', help='choose valid data split')
     parser.add_argument('--depth', default=None, help='choose depth')
     parser.add_argument('--leaf', default=None, help='choose leafs')
-    parser.add_argument('--data', default='', choices=['', 'add'])
+    parser.add_argument('--data', default='2nd', choices=['1st', '2nd', '3rd'])
     parser.add_argument('--mag', default='40x', choices=['5x', '10x', '20x', '40x'], help='choose mag')
-    parser.add_argument('--model', default='', choices=['', 'vgg11'])
+    parser.add_argument('--model', default='vgg16', choices=['vgg16', 'vgg11'])
     parser.add_argument('--name', default='Simple', choices=['Full', 'Simple'], help='choose name_mode')
     parser.add_argument('--num_gpu', default=1, type=int, help='input gpu num')
-    parser.add_argument('-c', '--classify_mode', default='new_tree', choices=['leaf', 'subtype', 'new_tree'], help='leaf->based on tree, simple->based on subtype')
-    parser.add_argument('-l', '--loss_mode', default='normal', choices=['normal','myinvarse','LDAM','focal','focal-weight'], help='select loss type')
+    parser.add_argument('-c', '--classify_mode', default='kurume_tree', choices=['normal_tree', 'kurume_tree', 'subtype'], help='leaf->based on tree, simple->based on subtype')
+    parser.add_argument('-l', '--loss_mode', default='ICE', choices=['CE','ICE','LDAM','focal','focal-weight'], help='select loss type')
     parser.add_argument('--lr', default=0.001, type=float)
     parser.add_argument('-C', '--constant', default=None)
     parser.add_argument('-g', '--gamma', default=None)
@@ -317,8 +317,7 @@ if __name__ == '__main__':
 
     num_gpu = args.num_gpu #argでGPUを入力
     
-    if args.data == 'add':
-        args.data = 'add_'
+    if args.data == '2nd' or args.data == '3rd':
         args.reduce = True
 
     if args.classify_mode != 'subtype':
@@ -340,4 +339,6 @@ if __name__ == '__main__':
     #nprocs : プロセス (GPU) の数
     mp.spawn(train_model, args=(num_gpu, args), nprocs=num_gpu, join=True)
 
-    utils.send_email(body=str(args))
+    # プログラムが終わったらメールを送信するプログラムです．
+    # utils.pyに自分のメールアドレスなどを設定したら使えます．
+    # utils.send_email(body=str(args))

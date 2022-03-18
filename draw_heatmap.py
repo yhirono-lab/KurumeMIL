@@ -261,8 +261,6 @@ def save_patch_tile(svs, mag, data, sort_idx, save_dir, img_name):
     for i in range(9):
         idx = sort_idx[i]
         pos = [data[0][idx], data[1][idx]]
-        # pos_x = data[0][idx]
-        # pos_y = data[1][idx]
         att = data[2][idx]
 
         if mag == '40x':
@@ -273,7 +271,6 @@ def save_patch_tile(svs, mag, data, sort_idx, save_dir, img_name):
             b_img = svs.read_region((pos[0]-(int(b_size*3/2)),pos[1]-(int(b_size*3/2))),1,(b_size,b_size)).convert('RGB')
         elif mag == '5x':
             b_img = svs.read_region((pos[0]-(int(b_size*7/2)),pos[1]-(int(b_size*7/2))),1,(b_size*2,b_size*2)).convert('RGB')
-        # b_img = svs.read_region((pos[0], pos[1]), 0, (b_size,b_size)).convert('RGB')
         b_img = np.array(b_img)
 
         plt.subplot(3,3,i+1)
@@ -297,8 +294,6 @@ def save_many_patch(slideID, mag, svs, sort_idx, label, data, save_dir, flag):
     for i in range(img_num):
         idx = sort_idx[i]
         pos = [data[0][idx], data[1][idx]]
-        # pos_x = data[0][idx]
-        # pos_y = data[1][idx]
         att = data[2][idx]
 
         if mag == '40x':
@@ -343,13 +338,13 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='This program is MIL using Kurume univ. data')
     parser.add_argument('--depth', default=None, help='choose depth')
     parser.add_argument('--leaf', default=None, help='choose leafs')
-    parser.add_argument('--data', default='', choices=['', 'add'])
+    parser.add_argument('--data', default='2nd', choices=['1st', '2nd', '3rd'])
     parser.add_argument('--mag', default='40x', choices=['5x', '10x', '20x', '40x'], help='choose mag')
-    parser.add_argument('--model', default='', choices=['', 'vgg11'])
+    parser.add_argument('--model', default='vgg16', choices=['vgg16', 'vgg11'])
     parser.add_argument('--name', default='Simple', choices=['Full', 'Simple'], help='choose name_mode')
     parser.add_argument('--gpu', default=1, type=int, help='input gpu num')
-    parser.add_argument('-c', '--classify_mode', default='leaf', choices=['leaf', 'subtype', 'new_tree'], help='leaf->based on tree, simple->based on subtype')
-    parser.add_argument('-l', '--loss_mode', default='normal', choices=['normal','myinvarse','LDAM','focal','focal-weight'], help='select loss type')
+    parser.add_argument('-c', '--classify_mode', default='kurume_tree', choices=['normal_tree', 'kurume_tree', 'subtype'], help='leaf->based on tree, simple->based on subtype')
+    parser.add_argument('-l', '--loss_mode', default='ICE', choices=['CE','ICE','LDAM','focal','focal-weight'], help='select loss type')
     parser.add_argument('--lr', default=0.001, type=float)
     parser.add_argument('-C', '--constant', default=None)
     parser.add_argument('-g', '--gamma', default=None)
@@ -358,8 +353,7 @@ if __name__ == '__main__':
     parser.add_argument('--reduce', action='store_true')
     args = parser.parse_args()
     
-    if args.data == 'add':
-        args.data = 'add_'
+    if args.data == '2nd' or args.data == '3rd':
         args.reduce = True
 
     if args.classify_mode != 'subtype':

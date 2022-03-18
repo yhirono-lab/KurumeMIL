@@ -27,16 +27,13 @@ def make_dirname(args):
         dir_name = f'subtype_classify'
         if args.fc:
             dir_name = f'fc_{dir_name}'
-        if args.model != '':
-            dir_name = f'{args.model}_{dir_name}'
-        if args.data != '':
-            if args.reduce:
-                dir_name = f'reduce_{dir_name}'
-            dir_name = f'{args.data}{dir_name}'
+        dir_name = f'{args.model}_{dir_name}'
+        if args.reduce:
+            dir_name = f'reduce_{dir_name}'
+        dir_name = f'{args.data}_{dir_name}'
+
     elif args.leaf is not None:
-        dir_name = args.classify_mode
-        if args.loss_mode != 'normal':
-            dir_name = f'{dir_name}_{args.loss_mode}'
+        dir_name = f'{args.classify_mode}_{args.loss_mode}'
         if args.loss_mode == 'LDAM':
             dir_name = f'{dir_name}-{args.constant}'
         if args.loss_mode == 'focal' or args.loss_mode == 'focal-weight':
@@ -45,17 +42,14 @@ def make_dirname(args):
             dir_name = f'{dir_name}_aug'
         if args.fc:
             dir_name = f'fc_{dir_name}'
-        if args.model != '':
-            dir_name = f'{args.model}_{dir_name}'
-        if args.data != '':
-            if args.reduce:
-                dir_name = f'reduce_{dir_name}'
-            dir_name = f'{args.data}{dir_name}'
+        dir_name = f'{args.model}_{dir_name}'
+        if args.reduce:
+            dir_name = f'reduce_{dir_name}'
+        dir_name = f'{args.data}_{dir_name}'
         dir_name = f'{dir_name}/depth-{args.depth}_leaf-{args.leaf}'
+
     else:
-        dir_name = args.classify_mode
-        if args.loss_mode != 'normal':
-            dir_name = f'{dir_name}_{args.loss_mode}'
+        dir_name = f'{args.classify_mode}_{args.loss_mode}'
         if args.loss_mode == 'LDAM':
             dir_name = f'{dir_name}-{args.constant}'
         if args.loss_mode == 'focal' or args.loss_mode == 'focal-weight':
@@ -64,12 +58,10 @@ def make_dirname(args):
             dir_name = f'{dir_name}_aug'
         if args.fc:
             dir_name = f'fc_{dir_name}'
-        if args.model != '':
-            dir_name = f'{args.model}_{dir_name}'
-        if args.data != '':
-            if args.reduce:
-                dir_name = f'reduce_{dir_name}'
-            dir_name = f'{args.data}{dir_name}'
+        dir_name = f'{args.model}_{dir_name}'
+        if args.reduce:
+            dir_name = f'reduce_{dir_name}'
+        dir_name = f'{args.data}_{dir_name}'
         dir_name = f'{dir_name}/depth-{args.depth}_leaf-all'
     
     return dir_name
@@ -79,16 +71,13 @@ def make_filename(args):
         filename = f'subtype_classify'
         if args.fc:
             filename = f'fc_{filename}'
-        if args.model != '':
-            filename = f'{args.model}_{filename}'
-        if args.data != '':
-            if args.reduce:
-                filename = f'reduce_{filename}'
-            filename = f'{args.data}{filename}'
+        filename = f'{args.model}_{filename}'
+        if args.reduce:
+            filename = f'reduce_{filename}'
+        filename = f'{args.data}_{filename}'
+
     elif args.leaf is not None:
-        filename = args.classify_mode
-        if args.loss_mode != 'normal':
-            filename = f'{filename}_{args.loss_mode}'
+        filename = f'{args.classify_mode}_{args.loss_mode}'
         if args.loss_mode == 'LDAM':
             filename = f'{filename}-{args.constant}'
         if args.loss_mode == 'focal' or args.loss_mode == 'focal-weight':
@@ -97,17 +86,13 @@ def make_filename(args):
             filename = f'{filename}_aug'
         if args.fc:
             filename = f'fc_{filename}'
-        if args.model != '':
-            filename = f'{args.model}_{filename}'
-        if args.data != '':
-            if args.reduce:
-                filename = f'reduce_{filename}'
-            filename = f'{args.data}{filename}'
+        filename = f'{args.model}_{filename}'
+        if args.reduce:
+            filename = f'reduce_{filename}'
+        filename = f'{args.data}_{filename}'
         filename = f'{filename}_depth-{args.depth}_leaf-{args.leaf}'
     else:
-        filename = args.classify_mode
-        if args.loss_mode != 'normal':
-            filename = f'{filename}_{args.loss_mode}'
+        filename = f'{args.classify_mode}_{args.loss_mode}'
         if args.loss_mode == 'LDAM':
             filename = f'{filename}-{args.constant}'
         if args.loss_mode == 'focal' or args.loss_mode == 'focal-weight':
@@ -116,12 +101,10 @@ def make_filename(args):
             filename = f'{filename}_aug'
         if args.fc:
             filename = f'fc_{filename}'
-        if args.model != '':
-            filename = f'{args.model}_{filename}'
-        if args.data != '':
-            if args.reduce:
-                filename = f'reduce_{filename}'
-            filename = f'{args.data}{filename}'
+        filename = f'{args.model}_{filename}'
+        if args.reduce:
+            filename = f'reduce_{filename}'
+        filename = f'{args.data}_{filename}'
         filename = f'{filename}_depth-{args.depth}_leaf-all'
     
     return filename
@@ -134,10 +117,10 @@ def makedir(path):
             return
 
 def send_email(body:str):
-    MAIL_ADDRESS = 'nitech28114106@gmail.com'
-    PASSWORD = 'yrxqmyxhkglnpfsq'
-    TO_ADDRESS1 = 'yyph.fam@gmail.com'
-    TO_ADDRESS2 = 'ckv14106@nitech.jp'
+    # python メールで検索してしらべてみてください
+    MAIL_ADDRESS = 'okuruhito@gmail.com'
+    PASSWORD = 'XXXX'
+    TO_ADDRESS1 = 'uketoruhito@gmail.com'
 
     smtpobj = smtplib.SMTP('smtp.gmail.com', 587)
     smtpobj.ehlo()
@@ -147,9 +130,6 @@ def send_email(body:str):
 
     msg = make_msg(MAIL_ADDRESS, TO_ADDRESS1, body)
     smtpobj.sendmail(MAIL_ADDRESS, TO_ADDRESS1, msg.as_string())
-
-    msg = make_msg(MAIL_ADDRESS, TO_ADDRESS2, body)
-    smtpobj.sendmail(MAIL_ADDRESS, TO_ADDRESS2, msg.as_string())
     
     smtpobj.close()
 
